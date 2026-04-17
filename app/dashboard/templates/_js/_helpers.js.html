@@ -1,0 +1,84 @@
+{# Shared JS helpers — included only in authenticated pages (NOT login).
+   These are purely utility functions with no side effects. #}
+<script>
+  // ========================================================================
+  // DISPLAY HELPERS
+  // ========================================================================
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    const opts = { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric', hour12: false };
+    const p = new Intl.DateTimeFormat('es-AR', opts).formatToParts(d);
+    const g = (t) => p.find(x => x.type === t)?.value || '';
+    return `${g('hour')}:${g('minute')} ${g('day')}/${g('month')}/${g('year')}`;
+  }
+
+  function timeAgo(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const secs = Math.floor((now - d) / 1000);
+    if (secs < 60) return 'hace ' + secs + 's';
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return 'hace ' + mins + 'min';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return 'hace ' + hrs + 'h';
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return 'hace ' + days + 'd';
+    return formatDate(dateStr);
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function statusBadge(status) {
+    return `<span class="badge badge-${status}">${status}</span>`;
+  }
+
+  function roleBadge(role) {
+    return `<span class="badge badge-${role}">${role}</span>`;
+  }
+
+  function boolBadge(value, trueLabel, falseLabel) {
+    const cls = value ? 'badge-active' : 'badge-inactive';
+    const label = value ? (trueLabel || 'Sí') : (falseLabel || 'No');
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  function showToast(msg, type = 'success') {
+    const el = document.createElement('div');
+    el.className = 'toast toast-' + type;
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3000);
+  }
+
+  function healthBadge(status) {
+    const s = (status || 'unknown').toLowerCase();
+    return `<span class="badge badge-${s}">${s}</span>`;
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  function recipientsList(arr) {
+    if (!arr || !arr.length) return '—';
+    return arr.map(r => {
+      const name = r.name ? `<span style="color:var(--color-text-primary)">${esc(r.name)}</span> ` : '';
+      return name + `<span style="color:var(--color-text-muted)">&lt;${esc(r.email)}&gt;</span>`;
+    }).join(', ');
+  }
+</script>

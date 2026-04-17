@@ -1,0 +1,33 @@
+{# App shell — sidebar + header + content area.
+   All authenticated pages extend this template.
+   Includes auth JS + helpers JS (but NOT page-specific logic). #}
+{% extends "base.html" %}
+
+{% block body %}
+<div id="app-shell" class="flex h-screen overflow-hidden">
+
+  {# Sidebar — each service defines nav_items in its routes #}
+  {% include "_partials/_sidebar.html" %}
+
+  <!-- Main content area -->
+  <main class="flex-1 overflow-y-auto">
+    {# Top bar #}
+    {% include "_partials/_topbar.html" %}
+
+    <!-- Page content -->
+    <div id="page-content" class="p-6 fade-in">
+      {% block page_content %}{% endblock %}
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {# Shared: BASE config + auth + helpers — available to all authenticated pages #}
+  <script>const BASE = '{{ base }}';</script>
+  {% include "_js/_auth.js.html" %}
+  {% include "_js/_helpers.js.html" %}
+
+  {# Page-specific JS — each page template fills this block #}
+  {% block page_scripts %}{% endblock %}
+{% endblock %}

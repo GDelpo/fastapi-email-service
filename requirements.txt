@@ -1,0 +1,43 @@
+# Mail Sender Service - Dependencies
+
+# FastAPI and ASGI server
+fastapi==0.128.0
+starlette==0.50.0
+uvicorn[standard]==0.32.1
+gunicorn==23.0.0
+
+# Database
+sqlmodel==0.0.31
+sqlalchemy[asyncio]==2.0.35
+asyncpg==0.31.0
+alembic==1.14.0
+
+# Settings and validation
+pydantic==2.12.5
+pydantic-settings==2.12.0
+
+# HTTP Client (for identity service)
+httpx==0.28.1
+
+# Async utilities
+aiofiles==24.1.0
+aiosmtplib==3.0.2
+
+# Email Providers
+sendgrid==6.11.0
+mailchimp-marketing==3.0.80
+
+# Templating
+jinja2==3.1.6
+
+# Cache
+redis[hiredis]==5.2.1
+
+# Task Queue (async worker)
+arq==0.26.1
+
+# Security
+python-multipart==0.0.19
+
+# Email validation
+email-validator>=2.2.0

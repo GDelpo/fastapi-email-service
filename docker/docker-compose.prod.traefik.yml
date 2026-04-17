@@ -1,0 +1,167 @@
+# ============================================================================
+# Mailsender Service - Docker Compose (Production with Traefik)
+# ============================================================================
+#
+# PREREQUISITES:
+#   1. Traefik running: docker compose -f docker-compose.traefik.yml up -d
+#   2. Network created: docker network create traefik-public
+#   3. .env file configured in parent directory
+#   4. Identity service running (for token validation)
+#
+# USAGE:
+#   cd mailsender
+#   docker compose --env-file .env -f docker/docker-compose.prod.traefik.yml up -d --build
+#   docker compose --env-file .env -f docker/docker-compose.prod.traefik.yml logs -f
+#
+# ACCESS:
+#   Via Traefik: http://<server>/mailsender/api/v1/...
+#   Health:      http://<server>/mailsender/health
+#   Docs:        http://<server>/mailsender/docs
+# ============================================================================
+
+name: mailsender
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: mailsender_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-mailsender_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mailsender_password}
+      POSTGRES_DB: ${DB_NAME:-mailsender_db}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    volumes:
+      - /opt/services/data/mailsender/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mailsender-internal
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: mailsender_redis
+    restart: unless-stopped
+    volumes:
+      - /opt/services/data/mailsender/redis:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - mailsender-internal
+
+  # ---------------------------------------------------------------------------
+  # Mailsender API
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    image: mailsender-api:${PROJECT_VERSION:-latest}
+    container_name: mailsender_api
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      # Docker network overrides
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      DEBUG: "false"
+      # Internal communication with Identity service (via traefik-public network)
+      IDENTITY_SERVICE_URL: http://identity_api:8080/api/v1
+    volumes:
+      - /opt/services/data/mailsender/attachments:/app/attachments
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    networks:
+      - mailsender-internal
+      - traefik-public
+    labels:
+      # Enable Traefik
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      
+      # Router: Match requests to /mailsender/*
+      - "traefik.http.routers.mailsender.rule=PathPrefix(`/mailsender`)"
+      - "traefik.http.routers.mailsender.entrypoints=web"
+      - "traefik.http.routers.mailsender.service=mailsender"
+      
+      # Middlewares chain: rate limit + add prefix header + strip prefix
+      # 1. Rate limiting (defined in traefik/dynamic/middlewares.yml)
+      # 2. Add X-Forwarded-Prefix header so FastAPI knows the original prefix
+      # 3. Strip /mailsender prefix before forwarding to the service
+      - "traefik.http.routers.mailsender.middlewares=rate-limit@file,mailsender-prefix,mailsender-strip"
+      - "traefik.http.middlewares.mailsender-prefix.headers.customrequestheaders.X-Forwarded-Prefix=/mailsender"
+      - "traefik.http.middlewares.mailsender-strip.stripprefix.prefixes=/mailsender"
+      
+      # Service: Load balancer configuration
+      - "traefik.http.services.mailsender.loadbalancer.server.port=8081"
+      - "traefik.http.services.mailsender.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.mailsender.loadbalancer.healthcheck.interval=30s"
+    command: >
+      sh -c "
+        echo '⏳ Waiting for PostgreSQL...' &&
+        until pg_isready -h postgres -p 5432 -U $${DB_USER}; do
+          sleep 2
+        done &&
+        echo '🔄 Running migrations...' &&
+        alembic upgrade head &&
+        echo '🚀 Starting API (production)...' &&
+        gunicorn app.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8081 --log-level info --forwarded-allow-ips='*'
+      "
+
+  # ---------------------------------------------------------------------------
+  # Worker (async email processing)
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    image: mailsender-worker:${PROJECT_VERSION:-latest}
+    container_name: mailsender_worker
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      DEBUG: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mailsender-internal
+    command: arq app.worker.WorkerSettings
+
+networks:
+  # Internal network for DB and Redis
+  mailsender-internal:
+    driver: bridge
+  # External network for Traefik routing
+  traefik-public:
+    external: true

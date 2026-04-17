@@ -1,0 +1,300 @@
+{# Emails list page — filters, table, pagination #}
+{% extends "shell.html" %}
+
+{% block title %}{{ service_name }} — Emails{% endblock %}
+
+{% block page_content %}
+<div id="emails-page">
+  <!-- Filter panel -->
+  <details id="filter-panel" class="filter-panel card mb-4" open>
+    <summary class="flex items-center justify-between px-5 py-3 cursor-pointer select-none">
+      <span class="text-sm font-medium flex items-center gap-2" style="color:var(--color-text-secondary)">
+        <i data-lucide="sliders-horizontal" class="w-4 h-4" aria-hidden="true"></i>
+        Filtros
+        <span id="filter-badge" class="badge badge-active hidden" style="font-size:10px">0</span>
+      </span>
+      <i data-lucide="chevron-down" class="w-4 h-4 filter-chevron" aria-hidden="true"></i>
+    </summary>
+    <div class="px-5 pb-4 pt-3 border-t" style="border-color:var(--color-border-subtle)">
+      {% set servicios = [
+        {"id": "dispatcher-service", "label": "Dispatcher"},
+        {"id": "partners-service", "label": "Partners"},
+        {"id": "tickets-service", "label": "Tickets"},
+        {"id": "quotes-service", "label": "Quotes"},
+        {"id": "records-service", "label": "Records"},
+        {"id": "portal-service", "label": "Portal"},
+        {"id": "cancellations-service", "label": "Cancellations"},
+        {"id": "api", "label": "API directa"}
+      ] %}
+      <!-- Fila 1: búsquedas de texto + estado + origen -->
+      <div class="flex flex-wrap items-end gap-3 mb-3">
+        <div class="flex-1 min-w-[180px]">
+          <label class="block text-[10px] font-medium uppercase tracking-wider mb-1" style="color:var(--color-text-muted);">Buscar</label>
+          <input type="text" id="filter-search" class="input" placeholder="ID o asunto…" autocomplete="off" />
+        </div>
+        <div class="flex-1 min-w-[180px]">
+          <label class="block text-[10px] font-medium uppercase tracking-wider mb-1" style="color:var(--color-text-muted);">Para</label>
+          <input type="text" id="filter-to" class="input" placeholder="destinatario@…" autocomplete="off" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-medium uppercase tracking-wider mb-1" style="color:var(--color-text-muted);">Estado</label>
+          <select id="filter-status" class="select">
+            <option value="">Todos</option>
+            <option value="queued">En cola</option>
+            <option value="processing">Procesando</option>
+            <option value="sent">Enviado</option>
+            <option value="delivered">Entregado</option>
+            <option value="failed">Fallido</option>
+            <option value="bounced">Rebotado</option>
+            <option value="rejected">Rechazado</option>
+            <option value="opened">Abierto</option>
+            <option value="clicked">Clickeado</option>
+            <option value="cancelled">Cancelado</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-medium uppercase tracking-wider mb-1" style="color:var(--color-text-muted);">Origen</label>
+          <select id="filter-source" class="select">
+            <option value="">Todos</option>
+            {% for servicio in servicios %}
+              <option value="{{ servicio.id }}">{{ servicio.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <!-- Fila 2: prioridad + fechas + botones -->
+      <div class="flex flex-wrap items-end gap-3">
+        <div>
+          <label class="block text-[10px] font-medium uppercase tracking-wider mb-1" style="color:var(--color-text-muted);">Prioridad</label>
+          <select id="filter-priority" class="select">
+            <option value="">Todas</option>
+            <option value="critical">Crítica</option>
+            <option value="high">Alta</option>
+            <option value="normal">Normal</option>
+            <option value="low">Baja</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-medium uppercase tracking-wider mb-1" style="color:var(--color-text-muted);">Desde</label>
+          <input type="date" id="filter-date-from" class="input" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-medium uppercase tracking-wider mb-1" style="color:var(--color-text-muted);">Hasta</label>
+          <input type="date" id="filter-date-to" class="input" />
+        </div>
+        <div class="flex gap-2 ml-auto">
+          <button onclick="loadEmails(0)" class="btn btn-primary btn-sm">
+            <i data-lucide="search" class="w-3.5 h-3.5" aria-hidden="true"></i>
+            Buscar
+          </button>
+          <button onclick="clearFilters()" class="btn btn-ghost btn-sm">Limpiar</button>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="overflow-x-auto">
+      <table class="data-table w-full">
+        <thead>
+          <tr>
+            <th>Estado</th>
+            <th>Para</th>
+            <th class="hidden md:table-cell sortable-col" onclick="setSort('subject')">
+              Asunto <span class="sort-icon" id="sort-subject"><i data-lucide="chevrons-up-down" class="w-3 h-3" aria-hidden="true"></i></span>
+            </th>
+            <th class="hidden lg:table-cell">Origen</th>
+            <th class="sortable-col" onclick="setSort('created_at')">
+              Fecha <span class="sort-icon" id="sort-created_at"><i data-lucide="chevrons-up-down" class="w-3 h-3" aria-hidden="true"></i></span>
+            </th>
+            <th class="w-10"></th>
+          </tr>
+        </thead>
+        <tbody id="emails-table-body">
+          <tr><td colspan="6" class="text-center py-12"><div class="skeleton h-4 w-48 mx-auto"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="px-5 py-3 flex items-center justify-between border-t" style="border-color: var(--color-border-subtle);">
+      <div id="pagination-info" class="text-xs" style="color: var(--color-text-muted);">Cargando…</div>
+      <div class="flex items-center gap-1">
+        <button id="btn-prev" onclick="prevPage()" class="btn btn-ghost btn-sm" disabled>
+          <i data-lucide="chevron-left" class="w-3.5 h-3.5" aria-hidden="true"></i> Anterior
+        </button>
+        <button id="btn-next" onclick="nextPage()" class="btn btn-ghost btn-sm" disabled>
+          Siguiente <i data-lucide="chevron-right" class="w-3.5 h-3.5" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  document.body.dataset.currentPage = 'emails';
+
+  let currentSkip = 0;
+  const PAGE_SIZE = 20;
+  let currentTotal = 0;
+  let sortField = 'created_at';
+  let sortDir = 'desc';
+
+  function refreshCurrentPage() { loadEmails(currentSkip); }
+
+  function setSort(field) {
+    if (sortField === field) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortField = field;
+      sortDir = 'desc';
+    }
+    updateSortIcons();
+    loadEmails(0);
+  }
+
+  function updateSortIcons() {
+    document.querySelectorAll('.sort-icon').forEach(el => el.classList.remove('active'));
+    const icon = document.getElementById('sort-' + sortField);
+    if (icon) {
+      icon.classList.add('active');
+      icon.innerHTML = sortDir === 'asc'
+        ? '<i data-lucide="chevron-up" class="w-3 h-3" aria-hidden="true"></i>'
+        : '<i data-lucide="chevron-down" class="w-3 h-3" aria-hidden="true"></i>';
+      lucide.createIcons();
+    }
+  }
+
+  function updateFilterBadge() {
+    const search   = document.getElementById('filter-search')?.value.trim() || '';
+    const status   = document.getElementById('filter-status')?.value || '';
+    const source   = document.getElementById('filter-source')?.value || '';
+    const priority = document.getElementById('filter-priority')?.value || '';
+    const dateFrom = document.getElementById('filter-date-from')?.value || '';
+    const dateTo   = document.getElementById('filter-date-to')?.value || '';
+    const hasDate  = dateFrom || dateTo ? 1 : 0;
+    const toEmail  = document.getElementById('filter-to')?.value.trim() || '';
+    const count = [search, toEmail, status, source, priority].filter(Boolean).length + hasDate;
+    const badge = document.getElementById('filter-badge');
+    if (badge) {
+      badge.textContent = count;
+      badge.classList.toggle('hidden', count === 0);
+    }
+  }
+
+  function clearFilters() {
+    document.getElementById('filter-search').value = '';
+    document.getElementById('filter-to').value = '';
+    document.getElementById('filter-status').value = '';
+    document.getElementById('filter-source').value = '';
+    document.getElementById('filter-priority').value = '';
+    document.getElementById('filter-date-from').value = '';
+    document.getElementById('filter-date-to').value = '';
+    updateFilterBadge();
+    loadEmails(0);
+  }
+
+  async function loadEmails(skip = 0) {
+    currentSkip = skip;
+    const search   = document.getElementById('filter-search')?.value.trim() || '';
+    const toEmail  = document.getElementById('filter-to')?.value.trim() || '';
+    const status   = document.getElementById('filter-status')?.value || '';
+    const source   = document.getElementById('filter-source')?.value || '';
+    const priority = document.getElementById('filter-priority')?.value || '';
+    const dateFrom = document.getElementById('filter-date-from')?.value || '';
+    const dateTo   = document.getElementById('filter-date-to')?.value || '';
+
+    updateFilterBadge();
+
+    const tbody = document.getElementById('emails-table-body');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12"><div class="skeleton h-4 w-48 mx-auto"></div></td></tr>';
+
+    let qs = `?skip=${skip}&limit=${PAGE_SIZE}&sort_by=${sortField}&sort_order=${sortDir}`;
+    if (search)   qs += `&search=${encodeURIComponent(search)}`;
+    if (toEmail)  qs += `&to_email=${encodeURIComponent(toEmail)}`;
+    if (status)   qs += `&status=${status}`;
+    if (source)   qs += `&source_service=${source}`;
+    if (priority) qs += `&priority=${priority}`;
+    if (dateFrom) qs += `&date_from=${encodeURIComponent(dateFrom + 'T00:00:00-03:00')}`;
+    if (dateTo)   qs += `&date_to=${encodeURIComponent(dateTo + 'T23:59:59-03:00')}`;
+
+    const resp = await apiFetch('/emails' + qs);
+    if (!resp || !resp.ok) return;
+
+    const data = await resp.json();
+    currentTotal = data.meta.total;
+    renderEmailsTable(data.data || []);
+
+    const info = document.getElementById('pagination-info');
+    const pageFrom = skip + 1;
+    const pageTo   = Math.min(skip + PAGE_SIZE, currentTotal);
+    info.textContent = currentTotal > 0 ? `${pageFrom}–${pageTo} de ${currentTotal}` : 'Sin resultados';
+
+    document.getElementById('btn-prev').disabled = skip === 0;
+    document.getElementById('btn-next').disabled = (skip + PAGE_SIZE) >= currentTotal;
+  }
+
+  function prevPage() { if (currentSkip >= PAGE_SIZE) loadEmails(currentSkip - PAGE_SIZE); }
+  function nextPage() { if (currentSkip + PAGE_SIZE < currentTotal) loadEmails(currentSkip + PAGE_SIZE); }
+
+  function renderEmailsTable(emails) {
+    const tbody = document.getElementById('emails-table-body');
+    if (!emails.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12" style="color:var(--color-text-muted)">No se encontraron emails con los filtros aplicados.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = emails.map(e => {
+      const toEmail = (e.toEmails && e.toEmails[0]) ? e.toEmails[0].email : '—';
+      const canRetry = ['failed', 'bounced'].includes(e.status);
+      const retryBtn = canRetry
+        ? `<button onclick="event.stopPropagation(); retryEmailFromList('${e.id}', this)" class="btn btn-ghost btn-sm" aria-label="Reintentar envío" style="color:var(--color-warning)"><i data-lucide="refresh-cw" class="w-3.5 h-3.5" aria-hidden="true"></i></button>`
+        : '';
+      return `<tr onclick="window.location.href='${BASE}/dashboard/emails/${e.id}'">
+        <td>${statusBadge(e.status)}</td>
+        <td class="font-mono text-xs max-w-[180px] truncate">${esc(toEmail)}</td>
+        <td class="hidden md:table-cell max-w-[280px] truncate" style="color:var(--color-text-primary)">${esc(e.subject)}</td>
+        <td class="hidden lg:table-cell"><span class="text-xs px-2 py-0.5 rounded" style="background:var(--color-surface-2)">${esc(e.sourceService || '—')}</span></td>
+        <td class="text-xs whitespace-nowrap">${formatDate(e.createdAt)}</td>
+        <td class="text-center">${retryBtn}</td>
+      </tr>`;
+    }).join('');
+    lucide.createIcons();
+  }
+
+  async function retryEmailFromList(id, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin" aria-hidden="true"></i>';
+    lucide.createIcons();
+    const resp = await apiFetch(`/emails/${id}/retry`, { method: 'POST' });
+    if (resp && resp.ok) {
+      showToast('Email re-encolado para reenvío');
+      setTimeout(() => loadEmails(currentSkip), 500);
+    } else {
+      showToast('Error al reintentar', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5" aria-hidden="true"></i>';
+      lucide.createIcons();
+    }
+  }
+
+  document.querySelectorAll('#emails-page .select').forEach(sel => {
+    sel.addEventListener('change', () => loadEmails(0));
+  });
+  document.getElementById('filter-search')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') loadEmails(0);
+  });
+  document.getElementById('filter-search')?.addEventListener('input', updateFilterBadge);
+  document.getElementById('filter-to')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') loadEmails(0);
+  });
+  document.getElementById('filter-to')?.addEventListener('input', updateFilterBadge);
+  document.getElementById('filter-date-from')?.addEventListener('change', () => loadEmails(0));
+  document.getElementById('filter-date-to')?.addEventListener('change', () => loadEmails(0));
+
+  updateSortIcons();
+  loadEmails(0);
+</script>
+{% endblock %}

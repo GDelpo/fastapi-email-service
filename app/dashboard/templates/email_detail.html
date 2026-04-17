@@ -1,0 +1,361 @@
+{# Email detail page — full email info, body preview, timeline, attachments #}
+{% extends "shell.html" %}
+
+{% block title %}{{ service_name }} — Detalle de Email{% endblock %}
+
+{% block page_content %}
+<div id="detail-page" data-email-id="{{ email_id }}">
+  <!-- Back -->
+  <a href="{{ base }}/dashboard/emails" class="inline-flex items-center gap-1 text-xs font-medium mb-4 hover:underline" style="color: var(--color-accent);">
+    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Volver a emails
+  </a>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left: Email info -->
+    <div class="lg:col-span-2 space-y-6">
+      <!-- Header card -->
+      <div class="card p-6" id="detail-header">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <div class="flex items-center gap-3 mb-1">
+              <span id="detail-status" class="badge">—</span>
+              <span id="detail-priority" class="text-xs font-medium px-2 py-0.5 rounded" style="background: var(--color-surface-2); color: var(--color-text-muted);">—</span>
+            </div>
+            <h2 id="detail-subject" class="text-lg font-semibold mt-2">Cargando...</h2>
+          </div>
+          <div class="flex gap-2" id="detail-actions"></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mt-6">
+          <div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">De</div>
+            <div id="detail-from" class="text-sm font-mono">—</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">Para</div>
+            <div id="detail-to" class="text-sm font-mono">—</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">CC</div>
+            <div id="detail-cc" class="text-sm font-mono">—</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">BCC</div>
+            <div id="detail-bcc" class="text-sm font-mono">—</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t" style="border-color: var(--color-border-subtle);">
+          <div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">Tipo</div>
+            <div id="detail-type" class="text-sm">—</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">Proveedor</div>
+            <div id="detail-provider" class="text-sm">—</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">Source ID</div>
+            <div id="detail-source-id" class="text-sm font-mono truncate">—</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">ID del email</div>
+            <div class="flex items-center gap-1.5">
+              <span id="detail-email-id" class="text-xs font-mono truncate" style="max-width:140px; color:var(--color-text-secondary);">—</span>
+              <button onclick="copyEmailId()" class="btn btn-ghost p-1" title="Copiar ID completo" style="min-width:0; height:auto;">
+                <i data-lucide="copy" class="w-3 h-3" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Email body -->
+      <div class="card" id="detail-body-card" style="display:none;">
+        <div class="px-5 py-3 border-b flex items-center justify-between" style="border-color: var(--color-border-subtle);">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <i data-lucide="mail" class="w-4 h-4"></i> Cuerpo del email
+          </h3>
+          <button id="detail-body-toggle" onclick="toggleEmailBody()" class="btn btn-ghost text-xs">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i> Mostrar
+          </button>
+        </div>
+        <div id="detail-body-content" style="display:none;">
+          <iframe id="detail-body-iframe" style="width:100%; border:none; min-height:200px; background:#fff;" sandbox="allow-same-origin"></iframe>
+          <pre id="detail-body-text" class="p-4 text-sm font-mono whitespace-pre-wrap" style="display:none; color:var(--color-text-secondary);"></pre>
+        </div>
+      </div>
+
+      <!-- Attachments -->
+      <div class="card" id="detail-attachments-card" style="display:none;">
+        <div class="px-5 py-3 border-b" style="border-color: var(--color-border-subtle);">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <i data-lucide="paperclip" class="w-4 h-4"></i> Adjuntos
+          </h3>
+        </div>
+        <div id="detail-attachments" class="p-4 space-y-2"></div>
+      </div>
+
+      <!-- Error info -->
+      <div class="card" id="detail-error-card" style="display:none;">
+        <div class="px-5 py-3 border-b" style="border-color: var(--color-border-subtle);">
+          <h3 class="text-sm font-semibold flex items-center gap-2" style="color: var(--color-error);">
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i> Error
+          </h3>
+        </div>
+        <div id="detail-error" class="p-4 text-sm font-mono" style="color: var(--color-error);"></div>
+      </div>
+    </div>
+
+    <!-- Right: Timeline -->
+    <div class="space-y-6">
+      <!-- Dates card -->
+      <div class="card p-5">
+        <h3 class="text-sm font-semibold mb-4">Fechas</h3>
+        <div class="space-y-3 text-sm" id="detail-dates">
+          <div class="skeleton h-4 w-full"></div>
+          <div class="skeleton h-4 w-3/4"></div>
+        </div>
+      </div>
+
+      <!-- Events timeline -->
+      <div class="card p-5">
+        <h3 class="text-sm font-semibold mb-4">Timeline</h3>
+        <div id="detail-timeline">
+          <div class="skeleton h-4 w-full mb-3"></div>
+          <div class="skeleton h-4 w-2/3"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  document.body.dataset.currentPage = 'email_detail';
+
+  function refreshCurrentPage() { loadEmailDetail(); }
+
+  async function loadEmailDetail() {
+    const container = document.getElementById('detail-page');
+    if (!container) return;
+    const emailId = container.dataset.emailId;
+
+    const resp = await apiFetch(`/emails/${emailId}?include=events,attachments`);
+    if (!resp || !resp.ok) {
+      container.innerHTML = '<div class="card p-8 text-center" style="color:var(--color-error)">No se pudo cargar el email.</div>';
+      return;
+    }
+
+    const e = await resp.json();
+
+    // Status & priority
+    document.getElementById('detail-status').outerHTML = statusBadge(e.status);
+    document.getElementById('detail-priority').textContent = e.priority;
+
+    // Subject
+    document.getElementById('detail-subject').textContent = e.subject;
+
+    // Recipients
+    document.getElementById('detail-from').innerHTML = esc(e.fromName ? e.fromName + ' ' : '') + '&lt;' + esc(e.fromEmail) + '&gt;';
+    document.getElementById('detail-to').innerHTML = recipientsList(e.toEmails);
+    document.getElementById('detail-cc').innerHTML = recipientsList(e.ccEmails);
+    document.getElementById('detail-bcc').innerHTML = recipientsList(e.bccEmails);
+
+    // Meta
+    document.getElementById('detail-type').textContent = e.emailType || '—';
+    document.getElementById('detail-provider').textContent = (e.provider || '—').toUpperCase();
+    document.getElementById('detail-source-id').textContent = e.sourceRequestId || '—';
+
+    // Email ID (visible + copiable)
+    const emailIdEl = document.getElementById('detail-email-id');
+    if (emailIdEl) emailIdEl.textContent = e.id;
+
+    // Dates
+    const datesEl = document.getElementById('detail-dates');
+    const dateItems = [
+      ['Creado', e.createdAt],
+      ['Enviado', e.sentAt],
+      ['Entregado', e.deliveredAt],
+      ['Abierto', e.openedAt],
+      ['Clickeado', e.clickedAt],
+      ['Rebotado', e.bouncedAt],
+    ].filter(([, v]) => v);
+    datesEl.innerHTML = dateItems.map(([label, val]) =>
+      `<div class="flex justify-between"><span style="color:var(--color-text-muted)">${label}</span><span class="font-mono text-xs">${formatDate(val)}</span></div>`
+    ).join('');
+
+    // Email body
+    if (e.htmlContent || e.textContent) {
+      document.getElementById('detail-body-card').style.display = '';
+      document.getElementById('detail-body-card').dataset.html = e.htmlContent || '';
+      document.getElementById('detail-body-card').dataset.text = e.textContent || '';
+    }
+
+    // Error
+    if (e.lastError) {
+      document.getElementById('detail-error-card').style.display = '';
+      document.getElementById('detail-error').textContent = e.lastError;
+    }
+
+    // Attachments
+    if (e.attachments && e.attachments.length > 0) {
+      document.getElementById('detail-attachments-card').style.display = '';
+      const attEl = document.getElementById('detail-attachments');
+      attEl.innerHTML = e.attachments.map(a => {
+        return `<div class="flex items-center justify-between p-3 rounded-lg" style="background:var(--color-surface-2)">
+          <div class="flex items-center gap-3">
+            <i data-lucide="file" class="w-4 h-4" style="color:var(--color-text-muted)"></i>
+            <div>
+              <div class="text-sm font-medium">${esc(a.filename)}</div>
+              <div class="text-xs" style="color:var(--color-text-muted)">${esc(a.contentType)} · ${formatBytes(a.sizeBytes)}</div>
+            </div>
+          </div>
+          <button onclick="downloadAttachment(event, '${emailId}', '${a.id}', '${esc(a.filename)}')" class="btn btn-ghost text-xs">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>`;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    // Actions
+    const actionsEl = document.getElementById('detail-actions');
+    let actions = '';
+    if (['failed', 'bounced'].includes(e.status)) {
+      actions += `<button onclick="retryEmail('${e.id}')" class="btn btn-primary text-xs"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reintentar</button>`;
+    }
+    if (e.status === 'queued') {
+      actions += `<button onclick="cancelEmail('${e.id}')" class="btn btn-danger text-xs"><i data-lucide="x" class="w-3.5 h-3.5"></i> Cancelar</button>`;
+    }
+    actionsEl.innerHTML = actions;
+
+    // Timeline 
+    await loadTimeline(emailId);
+
+    // Re-init icons
+    lucide.createIcons();
+  }
+
+  function toggleEmailBody() {
+    const content = document.getElementById('detail-body-content');
+    const btn = document.getElementById('detail-body-toggle');
+    const card = document.getElementById('detail-body-card');
+    const isHidden = content.style.display === 'none';
+
+    if (isHidden) {
+      content.style.display = '';
+      btn.innerHTML = '<i data-lucide="eye-off" class="w-3.5 h-3.5"></i> Ocultar';
+      const htmlBody = card.dataset.html;
+      const textBody = card.dataset.text;
+
+      if (htmlBody) {
+        const iframe = document.getElementById('detail-body-iframe');
+        iframe.style.display = '';
+        document.getElementById('detail-body-text').style.display = 'none';
+        iframe.srcdoc = htmlBody;
+        iframe.onload = () => {
+          try {
+            const h = iframe.contentDocument.documentElement.scrollHeight;
+            iframe.style.height = Math.min(Math.max(h, 200), 800) + 'px';
+          } catch(ex) { iframe.style.height = '400px'; }
+        };
+      } else if (textBody) {
+        document.getElementById('detail-body-iframe').style.display = 'none';
+        const pre = document.getElementById('detail-body-text');
+        pre.style.display = '';
+        pre.textContent = textBody;
+      }
+      lucide.createIcons();
+    } else {
+      content.style.display = 'none';
+      btn.innerHTML = '<i data-lucide="eye" class="w-3.5 h-3.5"></i> Mostrar';
+      lucide.createIcons();
+    }
+  }
+
+  async function loadTimeline(emailId) {
+    const resp = await apiFetch(`/emails/${emailId}/events`);
+    if (!resp || !resp.ok) return;
+
+    const events = await resp.json();
+    const el = document.getElementById('detail-timeline');
+
+    if (!events.length) {
+      el.innerHTML = '<div class="text-sm" style="color:var(--color-text-muted)">Sin eventos</div>';
+      return;
+    }
+
+    const dotColors = {
+      created: 'var(--color-text-muted)',
+      queued: 'var(--color-info)',
+      processing: 'var(--color-warning)',
+      sent: 'var(--color-success)',
+      delivered: 'var(--color-success)',
+      failed: 'var(--color-error)',
+      bounced: 'var(--color-error)',
+      hard_bounce: 'var(--color-error)',
+      soft_bounce: 'var(--color-warning)',
+      retry_scheduled: 'var(--color-warning)',
+      opened: 'var(--color-accent)',
+      clicked: 'var(--color-accent)',
+      cancelled: 'var(--color-text-muted)',
+    };
+
+    el.innerHTML = events.map(ev => {
+      const color = dotColors[ev.eventType] || 'var(--color-text-muted)';
+      return `<div class="timeline-item">
+        <div class="timeline-dot" style="border-color: ${color};"></div>
+        <div class="text-sm font-medium" style="color: var(--color-text-primary);">${esc(ev.eventType)}</div>
+        ${ev.description ? `<div class="text-xs mt-0.5" style="color:var(--color-text-muted)">${esc(ev.description)}</div>` : ''}
+        <div class="text-[10px] font-mono mt-1" style="color:var(--color-text-muted)">${formatDate(ev.timestamp)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  async function retryEmail(id) {
+    const resp = await apiFetch(`/emails/${id}/retry`, { method: 'POST' });
+    if (resp && resp.ok) {
+      showToast('Email re-encolado para reenvío');
+      setTimeout(() => loadEmailDetail(), 500);
+    } else {
+      showToast('Error al reintentar', 'error');
+    }
+  }
+
+  async function cancelEmail(id) {
+    if (!confirm('¿Cancelar este email?')) return;
+    const resp = await apiFetch(`/emails/${id}?reason=Cancelado desde dashboard`, { method: 'DELETE' });
+    if (resp && resp.ok) {
+      showToast('Email cancelado');
+      setTimeout(() => loadEmailDetail(), 500);
+    } else {
+      showToast('Error al cancelar', 'error');
+    }
+  }
+
+  function copyEmailId() {
+    const emailId = document.getElementById('detail-page').dataset.emailId;
+    navigator.clipboard.writeText(emailId).then(() => {
+      showToast('ID copiado');
+    });
+  }
+
+  async function downloadAttachment(e, emailId, attachmentId, filename) {
+    e.stopPropagation();
+    const resp = await apiFetch(`/emails/${emailId}/attachments/${attachmentId}/download`);
+    if (!resp || !resp.ok) { showToast('No se pudo descargar el archivo', 'error'); return; }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Init
+  loadEmailDetail();
+</script>
+{% endblock %}

@@ -1,0 +1,144 @@
+# ============================================================================
+# Mailsender Service - Docker Compose (Production Standalone)
+# ============================================================================
+#
+# Use this for production WITHOUT a reverse proxy (direct access).
+# For production with Traefik, use docker-compose.prod.traefik.yml instead.
+#
+# USAGE:
+#   cd mailsender
+#   docker compose --env-file .env -f docker/docker-compose.prod.standalone.yml up -d --build
+#   docker compose --env-file .env -f docker/docker-compose.prod.standalone.yml logs -f
+#
+# ACCESS:
+#   Direct: http://<server>:8081
+#   Health: http://<server>:8081/health
+#   Docs:   http://<server>:8081/docs
+# ============================================================================
+
+name: mailsender
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: mailsender_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-mailsender_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mailsender_password}
+      POSTGRES_DB: ${DB_NAME:-mailsender_db}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    volumes:
+      - mailsender_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mailsender-internal
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: mailsender_redis
+    restart: unless-stopped
+    volumes:
+      - mailsender_redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - mailsender-internal
+
+  # ---------------------------------------------------------------------------
+  # Mailsender API
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    image: mailsender-api:${PROJECT_VERSION:-latest}
+    container_name: mailsender_api
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      DEBUG: "false"
+    ports:
+      - "${API_PORT:-8081}:8081"
+    volumes:
+      - mailsender_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    networks:
+      - mailsender-internal
+    command: >
+      sh -c "
+        echo '⏳ Waiting for PostgreSQL...' &&
+        until pg_isready -h postgres -p 5432 -U $${DB_USER}; do
+          sleep 2
+        done &&
+        echo '🔄 Running migrations...' &&
+        alembic upgrade head &&
+        echo '🚀 Starting API (production)...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8081 --workers 2 --log-level info
+      "
+
+  # ---------------------------------------------------------------------------
+  # Worker (async email processing)
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    image: mailsender-worker:${PROJECT_VERSION:-latest}
+    container_name: mailsender_worker
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      DEBUG: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mailsender-internal
+    command: arq app.worker.WorkerSettings
+
+volumes:
+  mailsender_postgres_data:
+    name: mailsender_postgres_data
+  mailsender_redis_data:
+    name: mailsender_redis_data
+  mailsender_logs:
+    name: mailsender_logs
+
+networks:
+  mailsender-internal:
+    driver: bridge
