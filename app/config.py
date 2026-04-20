@@ -264,7 +264,7 @@ class Settings(BaseSettings):
     identity_service_url: str = "http://localhost:8080/api/v1"
 
     # External URL for Swagger UI tokenUrl (browser needs to reach this)
-    # Production: http://192.0.2.10/identity/api/v1
+    # Production: http://your-domain.example.com/identity/api/v1
     # If not set, falls back to identity_service_url
     identity_external_url: str = ""
 

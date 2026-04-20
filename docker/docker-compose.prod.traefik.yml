@@ -81,7 +81,9 @@ services:
       REDIS_HOST: redis
       DEBUG: "false"
       # Internal communication with Identity service (via traefik-public network)
-      IDENTITY_SERVICE_URL: http://identity_api:8080/api/v1
+      IDENTITY_SERVICE_URL: ${IDENTITY_SERVICE_URL:-http://identity_api:8080/api/v1}
+      # External URL used by Swagger UI in browsers (token acquisition)
+      IDENTITY_EXTERNAL_URL: ${IDENTITY_EXTERNAL_URL:-http://your-domain.example.com/identity/api/v1}
     volumes:
       - /opt/services/data/mailsender/attachments:/app/attachments
     depends_on:
