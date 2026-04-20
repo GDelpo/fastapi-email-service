@@ -1,13 +1,13 @@
 {# Email detail page — full email info, body preview, timeline, attachments #}
 {% extends "shell.html" %}
 
-{% block title %}{{ service_name }} — Detalle de Email{% endblock %}
+{% block title %}{{ service_name }} — Email detail{% endblock %}
 
 {% block page_content %}
 <div id="detail-page" data-email-id="{{ email_id }}">
   <!-- Back -->
   <a href="{{ base }}/dashboard/emails" class="inline-flex items-center gap-1 text-xs font-medium mb-4 hover:underline" style="color: var(--color-accent);">
-    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Volver a emails
+    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back to emails
   </a>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -21,18 +21,18 @@
               <span id="detail-status" class="badge">—</span>
               <span id="detail-priority" class="text-xs font-medium px-2 py-0.5 rounded" style="background: var(--color-surface-2); color: var(--color-text-muted);">—</span>
             </div>
-            <h2 id="detail-subject" class="text-lg font-semibold mt-2">Cargando...</h2>
+            <h2 id="detail-subject" class="text-lg font-semibold mt-2">Loading...</h2>
           </div>
           <div class="flex gap-2" id="detail-actions"></div>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mt-6">
           <div>
-            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">De</div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">From</div>
             <div id="detail-from" class="text-sm font-mono">—</div>
           </div>
           <div>
-            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">Para</div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">To</div>
             <div id="detail-to" class="text-sm font-mono">—</div>
           </div>
           <div>
@@ -47,11 +47,11 @@
 
         <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t" style="border-color: var(--color-border-subtle);">
           <div>
-            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">Tipo</div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">Type</div>
             <div id="detail-type" class="text-sm">—</div>
           </div>
           <div>
-            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">Proveedor</div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">Provider</div>
             <div id="detail-provider" class="text-sm">—</div>
           </div>
           <div>
@@ -59,10 +59,10 @@
             <div id="detail-source-id" class="text-sm font-mono truncate">—</div>
           </div>
           <div>
-            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">ID del email</div>
+            <div class="text-[10px] font-medium uppercase tracking-wider mb-0.5" style="color: var(--color-text-muted);">Email ID</div>
             <div class="flex items-center gap-1.5">
               <span id="detail-email-id" class="text-xs font-mono truncate" style="max-width:140px; color:var(--color-text-secondary);">—</span>
-              <button onclick="copyEmailId()" class="btn btn-ghost p-1" title="Copiar ID completo" style="min-width:0; height:auto;">
+              <button onclick="copyEmailId()" class="btn btn-ghost p-1" title="Copy full ID" style="min-width:0; height:auto;">
                 <i data-lucide="copy" class="w-3 h-3" aria-hidden="true"></i>
               </button>
             </div>
@@ -74,10 +74,10 @@
       <div class="card" id="detail-body-card" style="display:none;">
         <div class="px-5 py-3 border-b flex items-center justify-between" style="border-color: var(--color-border-subtle);">
           <h3 class="text-sm font-semibold flex items-center gap-2">
-            <i data-lucide="mail" class="w-4 h-4"></i> Cuerpo del email
+            <i data-lucide="mail" class="w-4 h-4"></i> Email body
           </h3>
           <button id="detail-body-toggle" onclick="toggleEmailBody()" class="btn btn-ghost text-xs">
-            <i data-lucide="eye" class="w-3.5 h-3.5"></i> Mostrar
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i> Show
           </button>
         </div>
         <div id="detail-body-content" style="display:none;">
@@ -90,7 +90,7 @@
       <div class="card" id="detail-attachments-card" style="display:none;">
         <div class="px-5 py-3 border-b" style="border-color: var(--color-border-subtle);">
           <h3 class="text-sm font-semibold flex items-center gap-2">
-            <i data-lucide="paperclip" class="w-4 h-4"></i> Adjuntos
+            <i data-lucide="paperclip" class="w-4 h-4"></i> Attachments
           </h3>
         </div>
         <div id="detail-attachments" class="p-4 space-y-2"></div>
@@ -111,7 +111,7 @@
     <div class="space-y-6">
       <!-- Dates card -->
       <div class="card p-5">
-        <h3 class="text-sm font-semibold mb-4">Fechas</h3>
+        <h3 class="text-sm font-semibold mb-4">Dates</h3>
         <div class="space-y-3 text-sm" id="detail-dates">
           <div class="skeleton h-4 w-full"></div>
           <div class="skeleton h-4 w-3/4"></div>
@@ -144,7 +144,7 @@
 
     const resp = await apiFetch(`/emails/${emailId}?include=events,attachments`);
     if (!resp || !resp.ok) {
-      container.innerHTML = '<div class="card p-8 text-center" style="color:var(--color-error)">No se pudo cargar el email.</div>';
+      container.innerHTML = '<div class="card p-8 text-center" style="color:var(--color-error)">Could not load email.</div>';
       return;
     }
 
@@ -175,12 +175,12 @@
     // Dates
     const datesEl = document.getElementById('detail-dates');
     const dateItems = [
-      ['Creado', e.createdAt],
-      ['Enviado', e.sentAt],
-      ['Entregado', e.deliveredAt],
-      ['Abierto', e.openedAt],
-      ['Clickeado', e.clickedAt],
-      ['Rebotado', e.bouncedAt],
+      ['Created', e.createdAt],
+      ['Sent', e.sentAt],
+      ['Delivered', e.deliveredAt],
+      ['Opened', e.openedAt],
+      ['Clicked', e.clickedAt],
+      ['Bounced', e.bouncedAt],
     ].filter(([, v]) => v);
     datesEl.innerHTML = dateItems.map(([label, val]) =>
       `<div class="flex justify-between"><span style="color:var(--color-text-muted)">${label}</span><span class="font-mono text-xs">${formatDate(val)}</span></div>`
@@ -224,10 +224,10 @@
     const actionsEl = document.getElementById('detail-actions');
     let actions = '';
     if (['failed', 'bounced'].includes(e.status)) {
-      actions += `<button onclick="retryEmail('${e.id}')" class="btn btn-primary text-xs"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reintentar</button>`;
+      actions += `<button onclick="retryEmail('${e.id}')" class="btn btn-primary text-xs"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Retry</button>`;
     }
     if (e.status === 'queued') {
-      actions += `<button onclick="cancelEmail('${e.id}')" class="btn btn-danger text-xs"><i data-lucide="x" class="w-3.5 h-3.5"></i> Cancelar</button>`;
+      actions += `<button onclick="cancelEmail('${e.id}')" class="btn btn-danger text-xs"><i data-lucide="x" class="w-3.5 h-3.5"></i> Cancel</button>`;
     }
     actionsEl.innerHTML = actions;
 
@@ -246,7 +246,7 @@
 
     if (isHidden) {
       content.style.display = '';
-      btn.innerHTML = '<i data-lucide="eye-off" class="w-3.5 h-3.5"></i> Ocultar';
+      btn.innerHTML = '<i data-lucide="eye-off" class="w-3.5 h-3.5"></i> Hide';
       const htmlBody = card.dataset.html;
       const textBody = card.dataset.text;
 
@@ -270,7 +270,7 @@
       lucide.createIcons();
     } else {
       content.style.display = 'none';
-      btn.innerHTML = '<i data-lucide="eye" class="w-3.5 h-3.5"></i> Mostrar';
+      btn.innerHTML = '<i data-lucide="eye" class="w-3.5 h-3.5"></i> Show';
       lucide.createIcons();
     }
   }
@@ -283,7 +283,7 @@
     const el = document.getElementById('detail-timeline');
 
     if (!events.length) {
-      el.innerHTML = '<div class="text-sm" style="color:var(--color-text-muted)">Sin eventos</div>';
+      el.innerHTML = '<div class="text-sm" style="color:var(--color-text-muted)">No events yet</div>';
       return;
     }
 
@@ -317,35 +317,35 @@
   async function retryEmail(id) {
     const resp = await apiFetch(`/emails/${id}/retry`, { method: 'POST' });
     if (resp && resp.ok) {
-      showToast('Email re-encolado para reenvío');
+      showToast('Email re-queued for delivery');
       setTimeout(() => loadEmailDetail(), 500);
     } else {
-      showToast('Error al reintentar', 'error');
+      showToast('Failed to retry', 'error');
     }
   }
 
   async function cancelEmail(id) {
-    if (!confirm('¿Cancelar este email?')) return;
-    const resp = await apiFetch(`/emails/${id}?reason=Cancelado desde dashboard`, { method: 'DELETE' });
+    if (!confirm('Cancel this email?')) return;
+    const resp = await apiFetch(`/emails/${id}?reason=Cancelled from dashboard`, { method: 'DELETE' });
     if (resp && resp.ok) {
-      showToast('Email cancelado');
+      showToast('Email cancelled');
       setTimeout(() => loadEmailDetail(), 500);
     } else {
-      showToast('Error al cancelar', 'error');
+      showToast('Failed to cancel', 'error');
     }
   }
 
   function copyEmailId() {
     const emailId = document.getElementById('detail-page').dataset.emailId;
     navigator.clipboard.writeText(emailId).then(() => {
-      showToast('ID copiado');
+      showToast('ID copied');
     });
   }
 
   async function downloadAttachment(e, emailId, attachmentId, filename) {
     e.stopPropagation();
     const resp = await apiFetch(`/emails/${emailId}/attachments/${attachmentId}/download`);
-    if (!resp || !resp.ok) { showToast('No se pudo descargar el archivo', 'error'); return; }
+    if (!resp || !resp.ok) { showToast('Failed to download attachment', 'error'); return; }
     const blob = await resp.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

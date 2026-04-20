@@ -22,22 +22,9 @@
     {% endfor %}
   </nav>
 
-  <!-- Plataforma -->
-  <div class="px-3 py-2 border-t" style="border-color: var(--color-border-subtle);">
-    <div class="text-[10px] font-semibold uppercase tracking-widest px-2 py-2" style="color: var(--color-text-muted);">Servicios</div>
-    <div class="grid grid-cols-4 gap-0.5 px-1">
-      <a href="/identity/dashboard/" target="_blank" title="Identidad" class="flex items-center justify-center p-2 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" style="color:var(--color-text-muted)"><i data-lucide="shield" class="w-4 h-4" aria-hidden="true"></i></a>
-      <a href="/tickets/dashboard/" target="_blank" title="Tickets" class="flex items-center justify-center p-2 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" style="color:var(--color-text-muted)"><i data-lucide="ticket" class="w-4 h-4" aria-hidden="true"></i></a>
-      <a href="/records/dashboard/" target="_blank" title="Records" class="flex items-center justify-center p-2 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" style="color:var(--color-text-muted)"><i data-lucide="scroll-text" class="w-4 h-4" aria-hidden="true"></i></a>
-      <a href="/dispatcher/dashboard/" target="_blank" title="Dispatcher" class="flex items-center justify-center p-2 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" style="color:var(--color-text-muted)"><i data-lucide="send" class="w-4 h-4" aria-hidden="true"></i></a>
-      <a href="/drive/dashboard/" target="_blank" title="Drive" class="flex items-center justify-center p-2 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" style="color:var(--color-text-muted)"><i data-lucide="hard-drive" class="w-4 h-4" aria-hidden="true"></i></a>
-      <a href="/storage/dashboard/" target="_blank" title="Storage" class="flex items-center justify-center p-2 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" style="color:var(--color-text-muted)"><i data-lucide="cloud" class="w-4 h-4" aria-hidden="true"></i></a>
-      <a href="/cancellations/dashboard/" target="_blank" title="Cancellations" class="flex items-center justify-center p-2 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" style="color:var(--color-text-muted)"><i data-lucide="bell-off" class="w-4 h-4" aria-hidden="true"></i></a>
-      <a href="/scheduler/dashboard/" target="_blank" title="Scheduler" class="flex items-center justify-center p-2 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" style="color:var(--color-text-muted)"><i data-lucide="eye" class="w-4 h-4" aria-hidden="true"></i></a>
-      <a href="/legacy/dashboard/" target="_blank" title="Legacy" class="flex items-center justify-center p-2 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" style="color:var(--color-text-muted)"><i data-lucide="database" class="w-4 h-4" aria-hidden="true"></i></a>
-      {# Customize with your organization branding — add internal doc links if needed #}
-    </div>
-  </div>
+  {# Optional: render cross-service shortcuts here by passing a `platform_links`
+     list (items with href / title / icon) through the template context. Kept empty
+     by default so the dashboard stays portable across deployments. #}
 
   <!-- User / Logout -->
   <div class="p-3 border-t" style="border-color: var(--color-border-subtle);">
@@ -49,7 +36,7 @@
         <div id="user-name" class="text-sm font-medium truncate">Admin</div>
         <div id="user-role" class="text-[10px] uppercase tracking-wider" style="color: var(--color-text-muted);">admin</div>
       </div>
-      <button onclick="logout()" class="p-1.5 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" title="Cerrar sesión" aria-label="Cerrar sesión">
+      <button onclick="logout()" class="p-1.5 rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" title="Log out" aria-label="Log out">
         <i data-lucide="log-out" class="w-4 h-4" style="color: var(--color-text-muted);" aria-hidden="true"></i>
       </button>
     </div>

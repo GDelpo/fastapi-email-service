@@ -10,6 +10,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from app.config import settings
+
 _DIR = Path(__file__).resolve().parent
 _STATIC_DIR = _DIR / "static"
 templates = Jinja2Templates(directory=str(_DIR / "templates"))
@@ -50,7 +52,7 @@ def _base(request: Request) -> str:
 # ============================================================================
 
 _NAV_ITEMS = [
-    {"href_suffix": "/dashboard/", "icon": "bar-chart-3", "label": "Resumen", "key": "overview"},
+    {"href_suffix": "/dashboard/", "icon": "bar-chart-3", "label": "Overview", "key": "overview"},
     {"href_suffix": "/dashboard/emails", "icon": "inbox", "label": "Emails", "key": "emails"},
 ]
 
@@ -83,7 +85,7 @@ async def dashboard_home(request: Request):
     """Overview — stats + recent emails."""
     return templates.TemplateResponse(
         "overview.html",
-        _ctx(request, page_title="Resumen", active_key="overview"),
+        _ctx(request, page_title="Overview", active_key="overview"),
     )
 
 
@@ -101,7 +103,7 @@ async def dashboard_email_detail(request: Request, email_id: str):
     """Email detail page."""
     return templates.TemplateResponse(
         "email_detail.html",
-        _ctx(request, page_title="Detalle de Email", active_key="emails", email_id=email_id),
+        _ctx(request, page_title="Email detail", active_key="emails", email_id=email_id),
     )
 
 
@@ -109,9 +111,14 @@ async def dashboard_email_detail(request: Request, email_id: str):
 async def dashboard_login(request: Request):
     """Login page."""
     base = _base(request)
+    # Identity URLs are served to the browser, so we prefer the "external"
+    # variant when configured (e.g., behind a reverse proxy the container URL
+    # is not reachable from the user's browser).
     return templates.TemplateResponse("login.html", {
         "request": request,
         "base": base,
         "service_name": "Mailsender",
         "service_icon": "mail",
+        "identity_login_url": settings.identity_login_url,
+        "identity_me_url": (settings.identity_external_url or settings.identity_service_url) + "/me",
     })
