@@ -119,9 +119,7 @@ class SMTPProvider(BaseEmailProvider):
 
         # Recipients - To
         to_recipients = self._parse_recipients(email.to_emails)
-        message["To"] = ", ".join(
-            [formataddr((r.name or "", r.email)) for r in to_recipients]
-        )
+        message["To"] = ", ".join([formataddr((r.name or "", r.email)) for r in to_recipients])
 
         # Subject
         message["Subject"] = email.subject
@@ -134,9 +132,7 @@ class SMTPProvider(BaseEmailProvider):
             cc_recipients = self._parse_recipients(email.cc_emails)
             cc_unique = [r for r in cc_recipients if r.email.lower() not in seen_emails]
             if cc_unique:
-                message["Cc"] = ", ".join(
-                    [formataddr((r.name or "", r.email)) for r in cc_unique]
-                )
+                message["Cc"] = ", ".join([formataddr((r.name or "", r.email)) for r in cc_unique])
                 for r in cc_unique:
                     seen_emails.add(r.email.lower())
 
@@ -170,9 +166,7 @@ class SMTPProvider(BaseEmailProvider):
                 "extra_fields": {
                     "recipients_count": len(all_recipients),
                     "has_attachments": has_attachments,
-                    "attachment_count": len(email.attachments)
-                    if email.attachments
-                    else 0,
+                    "attachment_count": len(email.attachments) if email.attachments else 0,
                 }
             },
         )
@@ -219,9 +213,7 @@ class SMTPProvider(BaseEmailProvider):
         finally:
             await smtp_client.quit()
 
-    def _add_attachment(
-        self, message: MIMEMultipart, attachment: EmailAttachment
-    ) -> None:
+    def _add_attachment(self, message: MIMEMultipart, attachment: EmailAttachment) -> None:
         """Add attachment to MIME message.
 
         Args:

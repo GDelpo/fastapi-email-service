@@ -1,5 +1,5 @@
 # ============================================================================
-# Mail Sender Worker - Production Dockerfile
+# Email Service Worker - Production Dockerfile
 # Processes email queue jobs (ARQ)
 # NOTE: Python 3.12 — ARQ uses asyncio.get_event_loop() incompatible with 3.14
 # ============================================================================

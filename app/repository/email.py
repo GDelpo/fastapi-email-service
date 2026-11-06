@@ -448,9 +448,7 @@ class EmailRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_attachment(
-        self, email_id: UUID, attachment_id: UUID
-    ) -> EmailAttachment:
+    async def get_attachment(self, email_id: UUID, attachment_id: UUID) -> EmailAttachment:
         """Get a specific attachment by ID.
 
         Args:
@@ -505,9 +503,7 @@ class EmailRepository:
         await self._add_event(email_id, EventType.QUEUED, "Email queued for sending")
         await self.session.commit()
 
-        logger.info(
-            "Email queued", extra={"extra_fields": {"email_id": str(email_id)}}
-        )
+        logger.info("Email queued", extra={"extra_fields": {"email_id": str(email_id)}})
         return await self.get(email_id)
 
     async def mark_processing(self, email_id: UUID) -> Email:
@@ -516,9 +512,7 @@ class EmailRepository:
         email.status = EmailStatus.PROCESSING
         email.updated_at = utc_now()
 
-        await self._add_event(
-            email_id, EventType.PROCESSING, "Email processing started"
-        )
+        await self._add_event(email_id, EventType.PROCESSING, "Email processing started")
         await self.session.commit()
         return await self.get(email_id)
 
@@ -614,9 +608,7 @@ class EmailRepository:
                     "email_id": str(email_id),
                     "reason": reason[:100],
                     "retry_count": email.retry_count,
-                    "next_retry": str(email.next_retry_at)
-                    if email.next_retry_at
-                    else None,
+                    "next_retry": str(email.next_retry_at) if email.next_retry_at else None,
                 }
             },
         )
@@ -637,9 +629,7 @@ class EmailRepository:
         email.updated_at = utc_now()
 
         event_type = (
-            EventType.HARD_BOUNCE
-            if bounce_type == BounceType.HARD
-            else EventType.SOFT_BOUNCE
+            EventType.HARD_BOUNCE if bounce_type == BounceType.HARD else EventType.SOFT_BOUNCE
         )
         await self._add_event(email_id, event_type, f"Bounce: {reason}")
         await self.session.commit()
@@ -698,21 +688,15 @@ class EmailRepository:
         email = await self.get(email_id)
 
         if email.status not in [EmailStatus.DRAFT, EmailStatus.QUEUED]:
-            raise DatabaseError(
-                "cancel", f"Cannot cancel email with status {email.status}"
-            )
+            raise DatabaseError("cancel", f"Cannot cancel email with status {email.status}")
 
         email.status = EmailStatus.CANCELLED
         email.updated_at = utc_now()
 
-        await self._add_event(
-            email_id, EventType.CANCELLED, reason or "Cancelled by user"
-        )
+        await self._add_event(email_id, EventType.CANCELLED, reason or "Cancelled by user")
         await self.session.commit()
 
-        logger.info(
-            "Email cancelled", extra={"extra_fields": {"email_id": str(email_id)}}
-        )
+        logger.info("Email cancelled", extra={"extra_fields": {"email_id": str(email_id)}})
         return await self.get(email_id)
 
     async def reset_for_retry(self, email_id: UUID) -> Email:
@@ -739,9 +723,7 @@ class EmailRepository:
         try:
             await self.session.delete(email)
             await self.session.commit()
-            logger.info(
-                "Email deleted", extra={"extra_fields": {"email_id": str(email_id)}}
-            )
+            logger.info("Email deleted", extra={"extra_fields": {"email_id": str(email_id)}})
 
         except SQLAlchemyError as e:
             logger.error("Error deleting email %s: %s", email_id, e)

@@ -4,11 +4,11 @@ Receives events from SendGrid, Mailchimp, etc. to update email status.
 Includes signature verification for security.
 """
 
-import hashlib
+import base64
 import hmac
 import json
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Request, status
 
 from app.config import settings
 from app.database import async_session_maker
@@ -25,87 +25,79 @@ logger = get_logger(__name__)
 # ============================================================================
 
 
+def _verification_disabled(provider: str) -> bool:
+    """Whether a provider without a configured key may skip verification.
+
+    INTENTIONAL: only in debug. In any other mode a missing key rejects every
+    event, so a forgotten setting cannot open the endpoint to forged events.
+    """
+    if settings.debug:
+        logger.warning(
+            "%s webhook key not configured; accepting unverified events (debug)", provider
+        )
+        return True
+    logger.error("%s webhook key not configured; rejecting event", provider)
+    return False
+
+
 def verify_sendgrid_signature(
     payload: bytes,
     signature: str | None,
     timestamp: str | None,
 ) -> bool:
-    """Verify SendGrid webhook signature.
+    """Verify a SendGrid Event Webhook signature.
 
-    SendGrid uses HMAC-SHA256 with the format:
-    signature = HMAC-SHA256(timestamp + payload, webhook_verification_key)
+    SendGrid signs ``timestamp + payload`` with ECDSA (P-256, SHA-256). The
+    signature header is base64 DER, and SENDGRID_WEBHOOK_KEY is the base64
+    public verification key shown in SendGrid's Mail Settings.
 
     Args:
         payload: Raw request body
         signature: X-Twilio-Email-Event-Webhook-Signature header
         timestamp: X-Twilio-Email-Event-Webhook-Timestamp header
-
-    Returns:
-        True if signature is valid
     """
-    webhook_key = getattr(settings, "sendgrid_webhook_key", None)
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.serialization import load_der_public_key
 
-    # If no key configured, skip verification (dev mode)
+    webhook_key = settings.sendgrid_webhook_key
     if not webhook_key:
-        logger.warning("⚠️ SendGrid webhook key not configured, skipping verification")
-        return True
+        return _verification_disabled("SendGrid")
 
     if not signature or not timestamp:
         logger.warning("Missing SendGrid signature headers")
         return False
 
     try:
-        # SendGrid signature verification
-        payload_to_sign = timestamp.encode() + payload
-        expected_signature = hmac.new(
-            webhook_key.encode(),
-            payload_to_sign,
-            hashlib.sha256,
-        ).hexdigest()
-
-        return hmac.compare_digest(expected_signature, signature)
-    except Exception as e:
-        logger.error("Signature verification error: %s", e)
-        return False
-
-
-def verify_mailchimp_signature(
-    payload: bytes,
-    signature: str | None,
-) -> bool:
-    """Verify Mailchimp webhook signature.
-
-    Mailchimp uses HMAC-SHA1 with the webhook secret.
-
-    Args:
-        payload: Raw request body
-        signature: X-Mailchimp-Signature header
-
-    Returns:
-        True if signature is valid
-    """
-    webhook_key = getattr(settings, "mailchimp_webhook_key", None)
-
-    # If no key configured, skip verification (dev mode)
-    if not webhook_key:
-        logger.warning("⚠️ Mailchimp webhook key not configured, skipping verification")
+        public_key = load_der_public_key(base64.b64decode(webhook_key))
+        public_key.verify(
+            base64.b64decode(signature),
+            timestamp.encode() + payload,
+            ec.ECDSA(hashes.SHA256()),
+        )
         return True
-
-    if not signature:
-        logger.warning("Missing Mailchimp signature header")
+    except InvalidSignature:
         return False
-
-    try:
-        expected_signature = hmac.new(
-            webhook_key.encode(),
-            payload,
-            hashlib.sha1,
-        ).hexdigest()
-
-        return hmac.compare_digest(expected_signature, signature)
     except Exception as e:
-        logger.error("Signature verification error: %s", e)
+        logger.error("SendGrid signature verification error: %s", e)
         return False
+
+
+def verify_mailchimp_secret(secret: str | None) -> bool:
+    """Verify the shared secret of a Mailchimp (Marketing API) webhook.
+
+    Mailchimp Marketing webhooks are not signed. The usual protection is a
+    secret in the callback URL: register it as
+    ``https://<host>/api/v1/webhooks/mailchimp?key=<MAILCHIMP_WEBHOOK_KEY>``.
+    """
+    webhook_key = settings.mailchimp_webhook_key
+    if not webhook_key:
+        return _verification_disabled("Mailchimp")
+    if not secret:
+        logger.warning("Missing Mailchimp webhook key in the URL")
+        return False
+    return hmac.compare_digest(secret.encode(), webhook_key.encode())
 
 
 # ============================================================================
@@ -144,7 +136,7 @@ async def sendgrid_webhook(
     try:
         events = json.loads(body)
     except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+        raise HTTPException(status_code=400, detail="Invalid JSON") from None
 
     if not isinstance(events, list):
         events = [events]
@@ -224,15 +216,11 @@ async def process_single_sendgrid_event(
         url = event.get("url")
         ip = event.get("ip")
         ua = event.get("useragent")
-        await repo.mark_clicked(
-            email_id, link_url=url or "", ip_address=ip, user_agent=ua
-        )
+        await repo.mark_clicked(email_id, link_url=url or "", ip_address=ip, user_agent=ua)
         logger.info("🔗 Email %s link clicked: %s", email_id, url)
 
     elif event_type == "bounce":
-        bounce_type = (
-            BounceType.HARD if event.get("type") == "bounce" else BounceType.SOFT
-        )
+        bounce_type = BounceType.HARD if event.get("type") == "bounce" else BounceType.SOFT
         reason = event.get("reason", "Unknown bounce")
         await repo.mark_bounced(email_id, bounce_type=bounce_type, reason=reason)
         logger.warning("⚠️ Email %s bounced: %s", email_id, reason)
@@ -247,11 +235,7 @@ async def process_single_sendgrid_event(
             # Soft bounces expire in 7 days
             from datetime import timedelta
 
-            expires = (
-                None
-                if bounce_type == BounceType.HARD
-                else (utc_now() + timedelta(days=7))
-            )
+            expires = None if bounce_type == BounceType.HARD else (utc_now() + timedelta(days=7))
 
             await suppression_repo.add(
                 email=recipient_email,
@@ -285,9 +269,7 @@ async def process_single_sendgrid_event(
             )
 
     elif event_type == "spamreport":
-        await repo._add_event(
-            email_id, EventType.SPAM_REPORT, "Recipient marked as spam"
-        )
+        await repo._add_event(email_id, EventType.SPAM_REPORT, "Recipient marked as spam")
         await repo.session.commit()
         logger.warning("🚫 Email %s marked as spam", email_id)
 
@@ -303,9 +285,7 @@ async def process_single_sendgrid_event(
             logger.info("🚫 Added %s to suppression list (spam report)", recipient_email)
 
     elif event_type == "unsubscribe":
-        await repo._add_event(
-            email_id, EventType.UNSUBSCRIBED, "Recipient unsubscribed"
-        )
+        await repo._add_event(email_id, EventType.UNSUBSCRIBED, "Recipient unsubscribed")
         await repo.session.commit()
         logger.info("📤 Email %s recipient unsubscribed", email_id)
 
@@ -335,15 +315,11 @@ async def process_single_sendgrid_event(
 async def mailchimp_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
-    x_mailchimp_signature: str | None = Header(None),
+    key: str | None = Query(None, include_in_schema=False),
 ) -> dict:
-    """Handle Mailchimp webhook events."""
-    # Get raw body for signature verification
-    body = await request.body()
-
-    # Verify signature
-    if not verify_mailchimp_signature(body, x_mailchimp_signature):
-        logger.warning("Invalid Mailchimp webhook signature")
+    """Handle Mailchimp webhook events (secret passed as ?key=...)."""
+    if not verify_mailchimp_secret(key):
+        logger.warning("Invalid Mailchimp webhook key")
         raise HTTPException(status_code=401, detail="Invalid signature")
 
     try:
@@ -353,7 +329,7 @@ async def mailchimp_webhook(
         data = dict(form)
     except Exception as e:
         logger.error("Error parsing Mailchimp webhook: %s", e)
-        raise HTTPException(status_code=400, detail="Invalid request")
+        raise HTTPException(status_code=400, detail="Invalid request") from None
 
     logger.info(
         f"📨 Received Mailchimp event: {event_type}",
@@ -401,9 +377,7 @@ async def process_mailchimp_event(event_type: str, data: dict) -> None:
             pass  # Not relevant for our use case
 
         elif event_type == "unsubscribe":
-            await repo._add_event(
-                email_id, EventType.UNSUBSCRIBED, "Recipient unsubscribed"
-            )
+            await repo._add_event(email_id, EventType.UNSUBSCRIBED, "Recipient unsubscribed")
             await repo.session.commit()
 
         elif event_type == "campaign":
@@ -415,6 +389,4 @@ async def process_mailchimp_event(event_type: str, data: dict) -> None:
         elif event_type == "cleaned":
             # Email address cleaned (invalid)
             reason = data.get("data[reason]", "Email cleaned from list")
-            await repo.mark_bounced(
-                email_id, bounce_type=BounceType.HARD, reason=reason
-            )
+            await repo.mark_bounced(email_id, bounce_type=BounceType.HARD, reason=reason)

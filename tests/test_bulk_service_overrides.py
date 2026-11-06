@@ -1,10 +1,12 @@
 """Tests: create_bulk_email uses per-recipient html/subject overrides and returns queued_details."""
+
 import datetime
 import sys
 import types
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+
+import pytest
 
 from app.schemas.bulk import BulkEmailCreate, BulkRecipient
 
@@ -47,6 +49,7 @@ async def test_per_recipient_html_used_over_batch_template():
     )
 
     bulk_data = BulkEmailCreate(
+        from_email="sender@example.com",
         subject="Fallback subject",
         html_content="<p>fallback</p>",
         recipients=[
@@ -106,6 +109,7 @@ async def test_fallback_to_batch_template_when_no_per_recipient_html():
     )
 
     bulk_data = BulkEmailCreate(
+        from_email="sender@example.com",
         subject="Batch subject",
         html_content="<p>batch html</p>",
         recipients=[
@@ -155,6 +159,7 @@ async def test_suppressed_recipient_carries_external_id():
     )
 
     bulk_data = BulkEmailCreate(
+        from_email="sender@example.com",
         subject="S",
         html_content="<p>H</p>",
         recipients=[BulkRecipient(email="a@b.com", external_id="item-id-001")],

@@ -23,7 +23,14 @@ target_metadata.naming_convention = {
     "pk": "pk_%(table_name)s",
 }
 
-from app.models import Email, EmailBatch, EmailTemplate, EmailEvent, EmailAttachment, EmailSuppression  # noqa: E402, F401
+from app.models import (  # noqa: E402, F401
+    Email,
+    EmailAttachment,
+    EmailBatch,
+    EmailEvent,
+    EmailSuppression,
+    EmailTemplate,
+)
 
 exclude_tables = loads(os.getenv("DB_EXCLUDE_TABLES", "[]"))
 
@@ -48,11 +55,11 @@ def run_migrations_offline():
     url = os.getenv("DATABASE_URL")
     if not url:
         # Construct URL from individual components if DATABASE_URL not set
-        db_user = os.getenv("DB_USER", "mailsender_user")
-        db_password = os.getenv("DB_PASSWORD", "mailsender_password")
+        db_user = os.getenv("DB_USER", "email_service_user")
+        db_password = os.getenv("DB_PASSWORD", "email_service_password")
         db_host = os.getenv("DB_HOST", "localhost")
         db_port = os.getenv("DB_PORT", "5432")
-        db_name = os.getenv("DB_NAME", "mailsender_db")
+        db_name = os.getenv("DB_NAME", "email_service_db")
         url = f"postgresql+asyncpg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
     context.configure(
@@ -82,11 +89,11 @@ async def run_migrations_online():
     url = os.getenv("DATABASE_URL")
     if not url:
         # Construct URL from individual components if DATABASE_URL not set
-        db_user = os.getenv("DB_USER", "mailsender_user")
-        db_password = os.getenv("DB_PASSWORD", "mailsender_password")
+        db_user = os.getenv("DB_USER", "email_service_user")
+        db_password = os.getenv("DB_PASSWORD", "email_service_password")
         db_host = os.getenv("DB_HOST", "localhost")
         db_port = os.getenv("DB_PORT", "5432")
-        db_name = os.getenv("DB_NAME", "mailsender_db")
+        db_name = os.getenv("DB_NAME", "email_service_db")
         url = f"postgresql+asyncpg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
     config_section["sqlalchemy.url"] = url

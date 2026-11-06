@@ -157,7 +157,7 @@ class MailchimpProvider(BaseEmailProvider):
 
             for lst in lists.get("lists", []):
                 if lst["name"] == list_name:
-                    self.logger.debug("Found existing list: %s", lst['id'])
+                    self.logger.debug("Found existing list: %s", lst["id"])
                     return lst["id"]
 
             # Create new list
@@ -181,10 +181,10 @@ class MailchimpProvider(BaseEmailProvider):
                         "language": "es",
                     },
                     "email_type_option": True,
-                }
+                },
             )
 
-            self.logger.info("Created new Mailchimp list: %s", new_list['id'])
+            self.logger.info("Created new Mailchimp list: %s", new_list["id"])
             return new_list["id"]
 
         except ApiClientError as e:
@@ -254,7 +254,7 @@ class MailchimpProvider(BaseEmailProvider):
                     "reply_to": self.from_email,
                     "title": f"API Email - {recipient_email}",
                 },
-            }
+            },
         )
 
         return campaign["id"]

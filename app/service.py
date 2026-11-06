@@ -15,6 +15,7 @@ from app.exceptions import (
     EmailSendError,
     RateLimitError,
     SuppressionError,
+    ValidationError,
 )
 from app.logger import get_logger
 from app.models import BatchStatus, Email, EmailPriority, EmailStatus, EmailType
@@ -31,8 +32,8 @@ from app.schemas import (
     BulkEmailResponse,
     EmailCreate,
     EmailRecipient,
-    QueueStats,
     QueuedRecipient,
+    QueueStats,
     SkippedRecipient,
 )
 
@@ -150,7 +151,9 @@ class EmailService:
             return
 
         # Create hash of email content
-        content = f"{email_data.subject}|{email_data.html_content or ''}|{email_data.text_content or ''}"
+        content = (
+            f"{email_data.subject}|{email_data.html_content or ''}|{email_data.text_content or ''}"
+        )
         body_hash = hashlib.md5(content.encode()).hexdigest()
 
         # Check for first recipient only (to avoid marking all as dupes)
@@ -205,10 +208,7 @@ class EmailService:
         await self._check_suppression(email_data)
 
         # Validate attachments against provider
-        if (
-            email_data.attachments
-            and not self.provider.capabilities.supports_attachments
-        ):
+        if email_data.attachments and not self.provider.capabilities.supports_attachments:
             raise AttachmentError(
                 f"Provider '{self.provider.provider_name}' does not support attachments. "
                 f"Remove attachments or use a different provider (smtp, sendgrid)."
@@ -253,9 +253,7 @@ class EmailService:
             if job_id:
                 logger.info(
                     "📬 Email queued to worker",
-                    extra={
-                        "extra_fields": {"email_id": str(email.id), "job_id": job_id}
-                    },
+                    extra={"extra_fields": {"email_id": str(email.id), "job_id": job_id}},
                 )
             else:
                 logger.warning(
@@ -300,10 +298,15 @@ class EmailService:
 
         # Set default sender (uses provider-specific from_email)
         from_email = (
-            str(bulk_data.from_email)
-            if bulk_data.from_email
-            else settings.default_from_email
+            str(bulk_data.from_email) if bulk_data.from_email else settings.default_from_email
         )
+        # INTENTIONAL: without a sender every recipient would fail one by one inside
+        # a batch that already exists; refuse the whole request up front instead.
+        if not from_email:
+            raise ValidationError(
+                "No sender address: pass from_email or configure the provider's sender "
+                "(MAIL_SENDER_EMAIL, SENDGRID_FROM_EMAIL or MAILCHIMP_FROM_EMAIL)"
+            )
 
         # Resolve template content if using template_id
         subject_template: str | None = bulk_data.subject
@@ -391,17 +394,17 @@ class EmailService:
                 variables["name"] = recipient.name or recipient.email.split("@")[0]
 
                 rendered_subject = (
-                    recipient.subject if recipient.subject is not None
+                    recipient.subject
+                    if recipient.subject is not None
                     else self._render_template(subject_template or "", variables)
                 )
                 rendered_html = (
-                    recipient.html_content if recipient.html_content is not None
+                    recipient.html_content
+                    if recipient.html_content is not None
                     else self._render_template(html_template or "", variables)
                 )
                 rendered_text = (
-                    self._render_template(text_template or "", variables)
-                    if text_template
-                    else None
+                    self._render_template(text_template or "", variables) if text_template else None
                 )
 
                 # Create email data
@@ -539,9 +542,7 @@ class EmailService:
 
         except AttachmentError:
             # Don't retry attachment errors
-            await self.repo.mark_failed(
-                email_id, str(AttachmentError), schedule_retry=False
-            )
+            await self.repo.mark_failed(email_id, str(AttachmentError), schedule_retry=False)
             raise
 
         except EmailSendError as e:

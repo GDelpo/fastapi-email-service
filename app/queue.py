@@ -26,9 +26,7 @@ def get_redis_settings() -> RedisSettings:
         host=settings.redis_host,
         port=settings.redis_port,
         database=settings.redis_db,
-        password=settings.redis_password.get_secret_value()
-        if settings.redis_password
-        else None,
+        password=settings.redis_password.get_secret_value() if settings.redis_password else None,
     )
 
 

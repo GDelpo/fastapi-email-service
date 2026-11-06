@@ -39,9 +39,7 @@ logger = get_logger(__name__)
 async def list_suppressions(
     current_user: TokenData = Depends(service_role_required),
     repo: SuppressionRepository = Depends(get_suppression_repository),
-    reason: SuppressionReason | None = Query(
-        default=None, description="Filter by reason"
-    ),
+    reason: SuppressionReason | None = Query(default=None, description="Filter by reason"),
     active_only: bool = Query(default=True, description="Only active suppressions"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),

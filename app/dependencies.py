@@ -2,14 +2,11 @@
 
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 from uuid import UUID
 
 import httpx
 from fastapi import Depends, Query, Request
-
-if TYPE_CHECKING:
-    from app.repository import SuppressionRepository
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, Field
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -20,8 +17,12 @@ from app.exceptions import AuthenticationError, AuthorizationError, ExternalServ
 from app.logger import get_logger
 from app.models import EmailPriority, EmailStatus, EmailType
 from app.providers.base import BaseEmailProvider
-from app.providers.factory import create_email_provider
-from app.repository import BatchRepository, EmailRepository, TemplateRepository
+from app.repository import (
+    BatchRepository,
+    EmailRepository,
+    SuppressionRepository,
+    TemplateRepository,
+)
 from app.service import EmailService
 
 logger = get_logger(__name__)
@@ -94,24 +95,18 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
 
     except httpx.ConnectTimeout:
         logger.error("Identity service connection timeout")
-        raise ExternalServiceError(
-            "Identity", "Connection timeout"
-        )
+        raise ExternalServiceError("Identity", "Connection timeout") from None
     except httpx.ReadTimeout:
         logger.error("Identity service read timeout")
-        raise ExternalServiceError(
-            "Identity", "Response timeout"
-        )
+        raise ExternalServiceError("Identity", "Response timeout") from None
     except httpx.ConnectError:
         logger.error("Cannot connect to identity service")
-        raise ExternalServiceError(
-            "Identity", "Service unavailable"
-        )
+        raise ExternalServiceError("Identity", "Service unavailable") from None
     except AuthenticationError:
         raise
     except Exception as e:
         logger.error("Identity service error: %s", e)
-        raise AuthenticationError(str(e))
+        raise AuthenticationError(str(e)) from None
 
 
 async def service_role_required(
@@ -173,10 +168,8 @@ async def get_template_repository(
 
 async def get_suppression_repository(
     session: AsyncSession = Depends(get_session),
-) -> "SuppressionRepository":
+) -> SuppressionRepository:
     """Get SuppressionRepository with database session."""
-    from app.repository import SuppressionRepository
-
     return SuppressionRepository(session=session)
 
 
@@ -200,7 +193,7 @@ async def get_email_service(
     repo: EmailRepository = Depends(get_repository),
     template_repo: TemplateRepository = Depends(get_template_repository),
     provider: BaseEmailProvider = Depends(get_email_provider),
-    suppression_repo: "SuppressionRepository" = Depends(get_suppression_repository),
+    suppression_repo: SuppressionRepository = Depends(get_suppression_repository),
     batch_repo: BatchRepository = Depends(get_batch_repository),
 ) -> EmailService:
     """Get EmailService with all dependencies including cache."""
@@ -305,7 +298,9 @@ def get_email_filters(
     ] = None,
     sort_by: Annotated[
         str,
-        Query(description="Sort field (created_at, sent_at, status, subject, source_service, priority)"),
+        Query(
+            description="Sort field (created_at, sent_at, status, subject, source_service, priority)"
+        ),
     ] = "created_at",
     sort_order: Annotated[
         str,

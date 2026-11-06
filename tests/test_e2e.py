@@ -1,7 +1,9 @@
-"""End-to-end tests for Mail Sender API."""
+"""End-to-end tests for Email Service API."""
 
 import pytest
 from httpx import AsyncClient
+
+from app.config import settings
 
 
 class TestHealthCheck:
@@ -9,12 +11,12 @@ class TestHealthCheck:
 
     @pytest.mark.asyncio
     async def test_health_check(self, client: AsyncClient):
-        """Test health check returns 200."""
+        """The root endpoint answers with the service name and its links."""
         response = await client.get("/")
         assert response.status_code == 200
         data = response.json()
-        assert "status" in data
-        assert data["name"] == "Mail Sender API"
+        assert data["service"] == "Email Service API"
+        assert data["health"] == "/health"
 
 
 class TestEmailEndpoints:
@@ -37,8 +39,9 @@ class TestWebhooks:
     """Webhook endpoint tests."""
 
     @pytest.mark.asyncio
-    async def test_sendgrid_webhook_invalid_json(self, client: AsyncClient):
-        """Test SendGrid webhook rejects invalid JSON."""
+    async def test_sendgrid_webhook_invalid_json(self, client: AsyncClient, monkeypatch):
+        """Test SendGrid webhook rejects invalid JSON (debug mode, no key)."""
+        monkeypatch.setattr(settings, "debug", True)
         response = await client.post(
             "/api/v1/webhooks/sendgrid",
             content="not valid json",
@@ -47,8 +50,9 @@ class TestWebhooks:
         assert response.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_sendgrid_webhook_accepts_events(self, client: AsyncClient):
-        """Test SendGrid webhook accepts valid events."""
+    async def test_sendgrid_webhook_accepts_events(self, client: AsyncClient, monkeypatch):
+        """Without a webhook key, events are accepted only in debug mode."""
+        monkeypatch.setattr(settings, "debug", True)
         events = [
             {
                 "event": "delivered",
@@ -57,6 +61,5 @@ class TestWebhooks:
             }
         ]
         response = await client.post("/api/v1/webhooks/sendgrid", json=events)
-        # Without webhook key configured, it should accept
         assert response.status_code == 200
         assert response.json()["received"] == 1

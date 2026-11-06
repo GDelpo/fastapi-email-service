@@ -102,10 +102,7 @@ class BaseEmailProvider(ABC):
             )
 
         # Check attachment count
-        if (
-            email.attachments
-            and len(email.attachments) > self.capabilities.max_attachments
-        ):
+        if email.attachments and len(email.attachments) > self.capabilities.max_attachments:
             raise AttachmentError(
                 f"Too many attachments. Maximum: {self.capabilities.max_attachments}, "
                 f"Provided: {len(email.attachments)}"
@@ -299,9 +296,7 @@ class BaseEmailProvider(ABC):
         except (json.JSONDecodeError, TypeError):
             # Fallback: try comma-separated
             return [
-                EmailRecipient(email=e.strip())
-                for e in recipients_json.split(",")
-                if e.strip()
+                EmailRecipient(email=e.strip()) for e in recipients_json.split(",") if e.strip()
             ]
 
     def _build_recipients_list(self, email: Email) -> list[str]:

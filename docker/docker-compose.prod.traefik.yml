@@ -1,5 +1,5 @@
 # ============================================================================
-# Mailsender Service - Docker Compose (Production with Traefik)
+# Email service Service - Docker Compose (Production with Traefik)
 # ============================================================================
 #
 # PREREQUISITES:
@@ -9,17 +9,17 @@
 #   4. Identity service running (for token validation)
 #
 # USAGE:
-#   cd mailsender
+#   cd fastapi-email-service
 #   docker compose --env-file .env -f docker/docker-compose.prod.traefik.yml up -d --build
 #   docker compose --env-file .env -f docker/docker-compose.prod.traefik.yml logs -f
 #
 # ACCESS:
-#   Via Traefik: http://<server>/mailsender/api/v1/...
-#   Health:      http://<server>/mailsender/health
-#   Docs:        http://<server>/mailsender/docs
+#   Via Traefik: http://<server>/email-service/api/v1/...
+#   Health:      http://<server>/email-service/health
+#   Docs:        http://<server>/email-service/docs
 # ============================================================================
 
-name: mailsender
+name: email-service
 
 services:
   # ---------------------------------------------------------------------------
@@ -27,32 +27,32 @@ services:
   # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
-    container_name: mailsender_postgres
+    container_name: email_service_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-mailsender_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-mailsender_password}
-      POSTGRES_DB: ${DB_NAME:-mailsender_db}
+      POSTGRES_USER: ${DB_USER:-email_service_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-email_service_password}
+      POSTGRES_DB: ${DB_NAME:-email_service_db}
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     volumes:
-      - /opt/services/data/mailsender/postgres:/var/lib/postgresql/data
+      - /opt/services/data/email-service/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - mailsender-internal
+      - email-service-internal
 
   # ---------------------------------------------------------------------------
   # Redis
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
-    container_name: mailsender_redis
+    container_name: email_service_redis
     restart: unless-stopped
     volumes:
-      - /opt/services/data/mailsender/redis:/data
+      - /opt/services/data/email-service/redis:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -60,17 +60,17 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - mailsender-internal
+      - email-service-internal
 
   # ---------------------------------------------------------------------------
-  # Mailsender API
+  # Email service API
   # ---------------------------------------------------------------------------
   api:
     build:
       context: ..
       dockerfile: docker/Dockerfile.prod
-    image: mailsender-api:${PROJECT_VERSION:-latest}
-    container_name: mailsender_api
+    image: email-service-api:${PROJECT_VERSION:-latest}
+    container_name: email_service_api
     restart: unless-stopped
     env_file:
       - ../.env
@@ -85,7 +85,7 @@ services:
       # External URL used by Swagger UI in browsers (token acquisition)
       IDENTITY_EXTERNAL_URL: ${IDENTITY_EXTERNAL_URL:-http://your-domain.example.com/identity/api/v1}
     volumes:
-      - /opt/services/data/mailsender/attachments:/app/attachments
+      - /opt/services/data/email-service/attachments:/app/attachments
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,30 +98,30 @@ services:
       start_period: 10s
       retries: 3
     networks:
-      - mailsender-internal
+      - email-service-internal
       - traefik-public
     labels:
       # Enable Traefik
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
       
-      # Router: Match requests to /mailsender/*
-      - "traefik.http.routers.mailsender.rule=PathPrefix(`/mailsender`)"
-      - "traefik.http.routers.mailsender.entrypoints=web"
-      - "traefik.http.routers.mailsender.service=mailsender"
+      # Router: Match requests to /email-service/*
+      - "traefik.http.routers.email-service.rule=PathPrefix(`/email-service`)"
+      - "traefik.http.routers.email-service.entrypoints=web"
+      - "traefik.http.routers.email-service.service=email-service"
       
       # Middlewares chain: rate limit + add prefix header + strip prefix
       # 1. Rate limiting (defined in traefik/dynamic/middlewares.yml)
       # 2. Add X-Forwarded-Prefix header so FastAPI knows the original prefix
-      # 3. Strip /mailsender prefix before forwarding to the service
-      - "traefik.http.routers.mailsender.middlewares=rate-limit@file,mailsender-prefix,mailsender-strip"
-      - "traefik.http.middlewares.mailsender-prefix.headers.customrequestheaders.X-Forwarded-Prefix=/mailsender"
-      - "traefik.http.middlewares.mailsender-strip.stripprefix.prefixes=/mailsender"
+      # 3. Strip /email-service prefix before forwarding to the service
+      - "traefik.http.routers.email-service.middlewares=rate-limit@file,email-service-prefix,email-service-strip"
+      - "traefik.http.middlewares.email-service-prefix.headers.customrequestheaders.X-Forwarded-Prefix=/email-service"
+      - "traefik.http.middlewares.email-service-strip.stripprefix.prefixes=/email-service"
       
       # Service: Load balancer configuration
-      - "traefik.http.services.mailsender.loadbalancer.server.port=8081"
-      - "traefik.http.services.mailsender.loadbalancer.healthcheck.path=/health"
-      - "traefik.http.services.mailsender.loadbalancer.healthcheck.interval=30s"
+      - "traefik.http.services.email-service.loadbalancer.server.port=8081"
+      - "traefik.http.services.email-service.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.email-service.loadbalancer.healthcheck.interval=30s"
     command: >
       sh -c "
         echo '⏳ Waiting for PostgreSQL...' &&
@@ -141,8 +141,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.worker
-    image: mailsender-worker:${PROJECT_VERSION:-latest}
-    container_name: mailsender_worker
+    image: email-service-worker:${PROJECT_VERSION:-latest}
+    container_name: email_service_worker
     restart: unless-stopped
     env_file:
       - ../.env
@@ -157,12 +157,12 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - mailsender-internal
+      - email-service-internal
     command: arq app.worker.WorkerSettings
 
 networks:
   # Internal network for DB and Redis
-  mailsender-internal:
+  email-service-internal:
     driver: bridge
   # External network for Traefik routing
   traefik-public:

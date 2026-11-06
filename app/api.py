@@ -1,6 +1,5 @@
 """API endpoints for emails - Simplified REST API."""
 
-
 import json
 from typing import Annotated
 from uuid import UUID
@@ -148,7 +147,7 @@ async def create_email(
             f"❌ Attachment validation failed: {e.message}",
             extra={"extra_fields": {"filename": e.filename}},
         )
-        raise HTTPException(status_code=400, detail=e.message)
+        raise HTTPException(status_code=400, detail=e.message) from None
 
     source_service = _derive_source_service(current_user)
 
@@ -161,9 +160,7 @@ async def create_email(
                 "priority": email_data.priority.value,
                 "sync": sync,
                 "files_uploaded": files_count,
-                "attachments": len(email_data.attachments)
-                if email_data.attachments
-                else 0,
+                "attachments": len(email_data.attachments) if email_data.attachments else 0,
             }
         },
     )
@@ -369,9 +366,7 @@ async def get_email(
     email_id: Annotated[UUID, Path(..., description="Email UUID")],
     include: Annotated[
         str | None,
-        Query(
-            description="Include related data: events, attachments (comma-separated)"
-        ),
+        Query(description="Include related data: events, attachments (comma-separated)"),
     ] = None,
     current_user: TokenData = Depends(admin_role_required),
     service: EmailService = Depends(get_email_service),
@@ -393,9 +388,7 @@ async def get_email(
     )
 
     # Parse include param
-    include_details = bool(
-        include and any(x in include for x in ["events", "attachments"])
-    )
+    include_details = bool(include and any(x in include for x in ["events", "attachments"]))
 
     email = await service.get_email(email_id, with_details=include_details)
     return EmailResponse.model_validate(email)
@@ -526,9 +519,7 @@ async def download_attachment(
         return Response(
             content=content,
             media_type=attachment.content_type,
-            headers={
-                "Content-Disposition": f'attachment; filename="{attachment.filename}"'
-            },
+            headers={"Content-Disposition": f'attachment; filename="{attachment.filename}"'},
         )
 
     raise HTTPException(
@@ -548,9 +539,9 @@ async def _handle_json_request(request: Request) -> EmailCreate:
         body = await request.json()
         return EmailCreate.model_validate(body)
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}") from None
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid email data: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid email data: {e}") from None
 
 
 async def _handle_multipart_request(request: Request) -> tuple[EmailCreate, int]:
@@ -564,22 +555,18 @@ async def _handle_multipart_request(request: Request) -> tuple[EmailCreate, int]
     # Get email JSON from form
     email_json = form.get("email")
     if not email_json:
-        raise HTTPException(
-            status_code=400, detail="Missing 'email' field in form data"
-        )
+        raise HTTPException(status_code=400, detail="Missing 'email' field in form data")
 
     try:
         email_dict = json.loads(str(email_json))
         email_data = EmailCreate.model_validate(email_dict)
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid email JSON: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid email JSON: {e}") from None
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid email data: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid email data: {e}") from None
 
     # Collect uploaded files
-    uploaded_files = [
-        v for k, v in form.multi_items() if k == "files" and hasattr(v, "read")
-    ]
+    uploaded_files = [v for k, v in form.multi_items() if k == "files" and hasattr(v, "read")]
 
     if uploaded_files:
         # Validate and process files using async utils

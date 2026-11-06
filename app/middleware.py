@@ -13,11 +13,11 @@ logger = get_logger(__name__)
 
 class ProxyHeadersMiddleware:
     """Middleware to handle forwarded prefix headers from reverse proxies.
-    
+
     This middleware is INFRASTRUCTURE-AGNOSTIC. It reads common headers used by
     different reverse proxies to communicate the original path prefix, and
     configures the ASGI scope's root_path accordingly.
-    
+
     Supported headers (checked in order of priority):
         - X-Forwarded-Prefix: Used by Traefik, custom configs
         - X-Forwarded-Path: Alternative naming
@@ -26,7 +26,7 @@ class ProxyHeadersMiddleware:
 
     PREFIX_HEADERS = [
         b"x-forwarded-prefix",
-        b"x-forwarded-path", 
+        b"x-forwarded-path",
         b"x-script-name",
     ]
 
@@ -36,13 +36,13 @@ class ProxyHeadersMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] in ("http", "websocket"):
             headers = dict(scope.get("headers", []))
-            
+
             forwarded_prefix = ""
             for header_name in self.PREFIX_HEADERS:
                 if header_name in headers:
                     forwarded_prefix = headers[header_name].decode("utf-8")
                     break
-            
+
             if forwarded_prefix:
                 prefix = forwarded_prefix.strip().rstrip("/")
                 if prefix and not prefix.startswith("/"):
@@ -91,7 +91,9 @@ class RequestLoggingMiddleware:
         start_time = time.time()
 
         logger.info(
-            "📥 %s %s", method, path,
+            "📥 %s %s",
+            method,
+            path,
             extra={
                 "extra_fields": {
                     "request_id": request_id,
@@ -121,7 +123,10 @@ class RequestLoggingMiddleware:
         except Exception as exc:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(
-                "❌ %s %s - Exception (%s)", method, path, type(exc).__name__,
+                "❌ %s %s - Exception (%s)",
+                method,
+                path,
+                type(exc).__name__,
                 extra={
                     "extra_fields": {
                         "request_id": request_id,
@@ -148,7 +153,12 @@ class RequestLoggingMiddleware:
 
         logger.log(
             log_level,
-            "%s %s %s - %s (%.2fms)", emoji, method, path, status_code, duration_ms,
+            "%s %s %s - %s (%.2fms)",
+            emoji,
+            method,
+            path,
+            status_code,
+            duration_ms,
             extra={
                 "extra_fields": {
                     "request_id": request_id,

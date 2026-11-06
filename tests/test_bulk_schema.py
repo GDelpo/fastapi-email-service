@@ -1,6 +1,8 @@
 """Tests for BulkEmailCreate per-recipient content validation."""
+
 import pytest
 from pydantic import ValidationError
+
 from app.schemas.bulk import BulkEmailCreate, BulkRecipient, QueuedRecipient, SkippedRecipient
 
 

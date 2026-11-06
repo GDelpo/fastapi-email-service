@@ -15,7 +15,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession as SQLModelAsyncSession
 from app.database import get_session
 from app.main import app
 
-
 # Use SQLite for testing
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
@@ -36,44 +35,44 @@ async def async_engine():
         echo=False,
         future=True,
     )
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-    
+
     yield engine
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
-    
+
     await engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
-async def async_session(async_engine) -> AsyncGenerator[AsyncSession, None]:
+async def async_session(async_engine) -> AsyncGenerator[AsyncSession]:
     """Create async session for testing."""
     async_session_maker = sessionmaker(
         async_engine,
         class_=SQLModelAsyncSession,
         expire_on_commit=False,
     )
-    
+
     async with async_session_maker() as session:
         yield session
 
 
 @pytest_asyncio.fixture(scope="function")
-async def client(async_session) -> AsyncGenerator[AsyncClient, None]:
+async def client(async_session) -> AsyncGenerator[AsyncClient]:
     """Create test client with overridden dependencies."""
-    
+
     async def override_get_session():
         yield async_session
-    
+
     app.dependency_overrides[get_session] = override_get_session
-    
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
-    
+
     app.dependency_overrides.clear()
 
 

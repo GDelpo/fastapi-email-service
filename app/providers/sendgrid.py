@@ -6,7 +6,6 @@ Based on official SendGrid Python SDK documentation:
 - CC/BCC support
 """
 
-
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import (
     Attachment,
@@ -75,9 +74,7 @@ class SendGridProvider(BaseEmailProvider):
 
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             ssl._create_default_https_context = ssl._create_unverified_context
-            self.logger.warning(
-                "⚠️ SSL verification disabled (not recommended for production)"
-            )
+            self.logger.warning("⚠️ SSL verification disabled (not recommended for production)")
 
         self.client = SendGridAPIClient(api_key=api_key)
         self.logger.debug(
@@ -102,8 +99,7 @@ class SendGridProvider(BaseEmailProvider):
 
         # Build To list with names
         to_emails = [
-            To(email=r.email, name=r.name) if r.name else To(email=r.email)
-            for r in to_recipients
+            To(email=r.email, name=r.name) if r.name else To(email=r.email) for r in to_recipients
         ]
 
         # Determine sender
@@ -136,9 +132,7 @@ class SendGridProvider(BaseEmailProvider):
             cc_recipients = self._parse_recipients(email.cc_emails)
             for r in cc_recipients:
                 if r.email.lower() not in to_email_set:
-                    message.add_cc(
-                        Cc(email=r.email, name=r.name) if r.name else Cc(email=r.email)
-                    )
+                    message.add_cc(Cc(email=r.email, name=r.name) if r.name else Cc(email=r.email))
                     to_email_set.add(r.email.lower())
 
         # Add BCC recipients (skip duplicates already in TO or CC)
@@ -163,6 +157,7 @@ class SendGridProvider(BaseEmailProvider):
         # Send (run in executor to avoid blocking the event loop)
         # The SendGrid SDK is synchronous, so we wrap it
         import asyncio
+
         from python_http_client.exceptions import HTTPError
 
         # Compatible with both Python 3.12 (worker) and 3.14 (api)
@@ -171,17 +166,17 @@ class SendGridProvider(BaseEmailProvider):
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        
+
         try:
             response = await loop.run_in_executor(None, self.client.send, message)
         except HTTPError as e:
             # Log detailed SendGrid error response
-            error_body = e.body if hasattr(e, 'body') else 'No body'
+            error_body = e.body if hasattr(e, "body") else "No body"
             self.logger.error(
                 f"SendGrid API error: {e}",
                 extra={
                     "extra_fields": {
-                        "status_code": getattr(e, 'status_code', None),
+                        "status_code": getattr(e, "status_code", None),
                         "error_body": error_body,
                         "email_id": str(email.id),
                     }
@@ -190,9 +185,7 @@ class SendGridProvider(BaseEmailProvider):
             raise Exception(f"SendGrid error: {error_body}") from e
 
         if response.status_code not in [200, 201, 202]:
-            raise Exception(
-                f"SendGrid returned status {response.status_code}: {response.body}"
-            )
+            raise Exception(f"SendGrid returned status {response.status_code}: {response.body}")
 
         # Extract message ID from headers
         message_id = None

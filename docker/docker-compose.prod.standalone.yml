@@ -1,12 +1,12 @@
 # ============================================================================
-# Mailsender Service - Docker Compose (Production Standalone)
+# Email service Service - Docker Compose (Production Standalone)
 # ============================================================================
 #
 # Use this for production WITHOUT a reverse proxy (direct access).
 # For production with Traefik, use docker-compose.prod.traefik.yml instead.
 #
 # USAGE:
-#   cd mailsender
+#   cd fastapi-email-service
 #   docker compose --env-file .env -f docker/docker-compose.prod.standalone.yml up -d --build
 #   docker compose --env-file .env -f docker/docker-compose.prod.standalone.yml logs -f
 #
@@ -16,7 +16,7 @@
 #   Docs:   http://<server>:8081/docs
 # ============================================================================
 
-name: mailsender
+name: email-service
 
 services:
   # ---------------------------------------------------------------------------
@@ -24,32 +24,32 @@ services:
   # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
-    container_name: mailsender_postgres
+    container_name: email_service_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-mailsender_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-mailsender_password}
-      POSTGRES_DB: ${DB_NAME:-mailsender_db}
+      POSTGRES_USER: ${DB_USER:-email_service_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-email_service_password}
+      POSTGRES_DB: ${DB_NAME:-email_service_db}
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     volumes:
-      - mailsender_postgres_data:/var/lib/postgresql/data
+      - email_service_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - mailsender-internal
+      - email-service-internal
 
   # ---------------------------------------------------------------------------
   # Redis
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
-    container_name: mailsender_redis
+    container_name: email_service_redis
     restart: unless-stopped
     volumes:
-      - mailsender_redis_data:/data
+      - email_service_redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -57,17 +57,17 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - mailsender-internal
+      - email-service-internal
 
   # ---------------------------------------------------------------------------
-  # Mailsender API
+  # Email service API
   # ---------------------------------------------------------------------------
   api:
     build:
       context: ..
       dockerfile: docker/Dockerfile.prod
-    image: mailsender-api:${PROJECT_VERSION:-latest}
-    container_name: mailsender_api
+    image: email-service-api:${PROJECT_VERSION:-latest}
+    container_name: email_service_api
     restart: unless-stopped
     env_file:
       - ../.env
@@ -79,7 +79,7 @@ services:
     ports:
       - "${API_PORT:-8081}:8081"
     volumes:
-      - mailsender_logs:/app/logs
+      - email_service_logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,7 +92,7 @@ services:
       start_period: 10s
       retries: 3
     networks:
-      - mailsender-internal
+      - email-service-internal
     command: >
       sh -c "
         echo '⏳ Waiting for PostgreSQL...' &&
@@ -112,8 +112,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.worker
-    image: mailsender-worker:${PROJECT_VERSION:-latest}
-    container_name: mailsender_worker
+    image: email-service-worker:${PROJECT_VERSION:-latest}
+    container_name: email_service_worker
     restart: unless-stopped
     env_file:
       - ../.env
@@ -128,17 +128,17 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - mailsender-internal
+      - email-service-internal
     command: arq app.worker.WorkerSettings
 
 volumes:
-  mailsender_postgres_data:
-    name: mailsender_postgres_data
-  mailsender_redis_data:
-    name: mailsender_redis_data
-  mailsender_logs:
-    name: mailsender_logs
+  email_service_postgres_data:
+    name: email_service_postgres_data
+  email_service_redis_data:
+    name: email_service_redis_data
+  email_service_logs:
+    name: email_service_logs
 
 networks:
-  mailsender-internal:
+  email-service-internal:
     driver: bridge

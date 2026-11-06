@@ -189,9 +189,7 @@ class EmailSuppression(SQLModel, table=True):
 
     # Why it was suppressed
     reason: SuppressionReason = Field(
-        sa_column=sa.Column(
-            sa.Enum(SuppressionReason, name="suppressionreason"), nullable=False
-        )
+        sa_column=sa.Column(sa.Enum(SuppressionReason, name="suppressionreason"), nullable=False)
     )
 
     # Where the suppression came from
@@ -336,9 +334,7 @@ class Email(SQLModel, table=True):
     bounce_reason: str | None = Field(default=None)
 
     # Batch (for bulk sends)
-    batch_id: UUID | None = Field(
-        default=None, foreign_key="email_batches.id", index=True
-    )
+    batch_id: UUID | None = Field(default=None, foreign_key="email_batches.id", index=True)
 
     # Origin tracking
     source_service: str | None = Field(default=None, max_length=100, index=True)

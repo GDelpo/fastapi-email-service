@@ -1,9 +1,9 @@
 # ============================================================================
-# Mailsender Service - Docker Compose (Development)
+# Email service Service - Docker Compose (Development)
 # ============================================================================
 #
 # USAGE:
-#   cd mailsender
+#   cd fastapi-email-service
 #   docker compose -f docker/docker-compose.dev.yml up -d
 #   docker compose -f docker/docker-compose.dev.yml logs -f
 #   docker compose -f docker/docker-compose.dev.yml down
@@ -19,7 +19,7 @@
 #   docker compose -f docker/docker-compose.dev.yml --profile tools up -d
 # ============================================================================
 
-name: mailsender-dev
+name: email-service-dev
 
 services:
   # ---------------------------------------------------------------------------
@@ -27,33 +27,33 @@ services:
   # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
-    container_name: mailsender_postgres
+    container_name: email_service_postgres
     environment:
-      POSTGRES_USER: ${DB_USER:-mailsender_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-mailsender_password}
-      POSTGRES_DB: ${DB_NAME:-mailsender_db}
+      POSTGRES_USER: ${DB_USER:-email_service_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-email_service_password}
+      POSTGRES_DB: ${DB_NAME:-email_service_db}
     ports:
       - "${DB_PORT_EXTERNAL:-5433}:5432"
     volumes:
-      - mailsender_postgres_data:/var/lib/postgresql/data
+      - email_service_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - mailsender-internal
+      - email-service-internal
 
   # ---------------------------------------------------------------------------
   # Redis
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
-    container_name: mailsender_redis
+    container_name: email_service_redis
     ports:
       - "${REDIS_PORT_EXTERNAL:-6380}:6379"
     volumes:
-      - mailsender_redis_data:/data
+      - email_service_redis_data:/data
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -61,7 +61,7 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - mailsender-internal
+      - email-service-internal
 
   # ---------------------------------------------------------------------------
   # API (Development - hot reload)
@@ -70,7 +70,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: mailsender_api
+    container_name: email_service_api
     env_file:
       - ../.env
     environment:
@@ -84,17 +84,17 @@ services:
       - ../app:/app/app:ro
       - ../migrations:/app/migrations:ro
       - ../alembic.ini:/app/alembic.ini:ro
-      - mailsender_logs:/app/logs
+      - email_service_logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - mailsender-internal
+      - email-service-internal
     command: >
       sh -c "
-        until pg_isready -h postgres -p 5432 -U $${DB_USER:-mailsender_user}; do
+        until pg_isready -h postgres -p 5432 -U $${DB_USER:-email_service_user}; do
           echo 'Waiting for PostgreSQL...'
           sleep 2
         done &&
@@ -111,7 +111,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.worker
-    container_name: mailsender_worker
+    container_name: email_service_worker
     env_file:
       - ../.env
     environment:
@@ -129,7 +129,7 @@ services:
       api:
         condition: service_started
     networks:
-      - mailsender-internal
+      - email-service-internal
     command: arq app.worker.WorkerSettings
     restart: unless-stopped
 
@@ -138,12 +138,12 @@ services:
   # ---------------------------------------------------------------------------
   mailhog:
     image: mailhog/mailhog:latest
-    container_name: mailsender_mailhog
+    container_name: email_service_mailhog
     ports:
       - "${MAILHOG_SMTP_PORT:-1025}:1025"
       - "${MAILHOG_WEB_PORT:-8025}:8025"
     networks:
-      - mailsender-internal
+      - email-service-internal
     profiles:
       - tools
 
@@ -152,25 +152,25 @@ services:
   # ---------------------------------------------------------------------------
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: mailsender_pgadmin
+    container_name: email_service_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@admin.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
     ports:
       - "${PGADMIN_PORT:-5051}:80"
     volumes:
-      - mailsender_pgadmin_data:/var/lib/pgadmin
+      - email_service_pgadmin_data:/var/lib/pgadmin
     networks:
-      - mailsender-internal
+      - email-service-internal
     profiles:
       - tools
 
 volumes:
-  mailsender_postgres_data:
-  mailsender_redis_data:
-  mailsender_pgadmin_data:
-  mailsender_logs:
+  email_service_postgres_data:
+  email_service_redis_data:
+  email_service_pgadmin_data:
+  email_service_logs:
 
 networks:
-  mailsender-internal:
+  email-service-internal:
     driver: bridge

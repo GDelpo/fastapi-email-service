@@ -1,0 +1,19 @@
+[tool.ruff]
+line-length = 100
+# py312: the ARQ worker image still runs Python 3.12 (see docker/Dockerfile.worker),
+# which evaluates annotations eagerly; quoted forward references must stay.
+target-version = "py312"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# Long log messages and docstrings stay as they are; the formatter wraps code.
+# UP042: moving `(str, Enum)` to StrEnum changes str() output; not done blindly.
+ignore = ["E501", "UP042"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependencies are declared as default arguments by design.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Form"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

@@ -60,8 +60,7 @@ class BulkEmailCreate(BaseModel):
         has_template = self.template_id is not None
         has_batch_content = self.subject is not None and self.html_content is not None
         all_recipients_have_content = all(
-            r.html_content is not None and r.subject is not None
-            for r in self.recipients
+            r.html_content is not None and r.subject is not None for r in self.recipients
         )
 
         if not has_template and not has_batch_content and not all_recipients_have_content:
@@ -70,9 +69,7 @@ class BulkEmailCreate(BaseModel):
                 "at batch level, or 'html_content' and 'subject' on every recipient."
             )
         if has_template and (has_batch_content or all_recipients_have_content):
-            raise ValueError(
-                "Provide either 'template_id' OR content fields, not both"
-            )
+            raise ValueError("Provide either 'template_id' OR content fields, not both")
 
 
 class SkippedRecipient(CamelModel):
@@ -88,7 +85,7 @@ class QueuedRecipient(CamelModel):
     """Details of a successfully queued recipient."""
 
     email: str
-    message_id: str        # Email record ID in mailsender (UUID)
+    message_id: str  # Email record ID in email-service (UUID)
     external_id: str | None = None  # Echoes caller's external_id for easy correlation
 
 

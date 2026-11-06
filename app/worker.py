@@ -6,7 +6,6 @@ Run with: arq app.worker.WorkerSettings
 This is the entry point for the background worker process.
 """
 
-
 from arq import cron
 from arq.connections import RedisSettings
 
@@ -66,9 +65,7 @@ class WorkerSettings:
         host=settings.redis_host,
         port=settings.redis_port,
         database=settings.redis_db,
-        password=settings.redis_password.get_secret_value()
-        if settings.redis_password
-        else None,
+        password=settings.redis_password.get_secret_value() if settings.redis_password else None,
     )
 
     # Job functions available to the worker

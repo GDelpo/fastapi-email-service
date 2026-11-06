@@ -19,9 +19,7 @@ class TemplateRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create(
-        self, template_data: dict, created_by: UUID | None = None
-    ) -> EmailTemplate:
+    async def create(self, template_data: dict, created_by: UUID | None = None) -> EmailTemplate:
         """Create new template."""
         variables_json = None
         if template_data.get("variables"):
@@ -88,7 +86,7 @@ class TemplateRepository:
         for field, value in update_data.items():
             if value is not None:
                 if field == "variables":
-                    setattr(template, "variables", json.dumps(value))
+                    template.variables = json.dumps(value)
                 else:
                     setattr(template, field, value)
 

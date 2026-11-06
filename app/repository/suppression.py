@@ -38,9 +38,7 @@ class SuppressionRepository:
         email_normalized = email.lower().strip()
 
         # Check if already exists
-        stmt = select(EmailSuppression).where(
-            EmailSuppression.email == email_normalized
-        )
+        stmt = select(EmailSuppression).where(EmailSuppression.email == email_normalized)
         result = await self.session.execute(stmt)
         existing = result.scalars().first()
 
@@ -57,9 +55,7 @@ class SuppressionRepository:
 
             logger.info(
                 "Updated suppression",
-                extra={
-                    "extra_fields": {"email": email_normalized, "reason": reason.value}
-                },
+                extra={"extra_fields": {"email": email_normalized, "reason": reason.value}},
             )
 
             await self.session.commit()
@@ -146,9 +142,7 @@ class SuppressionRepository:
         """
         email_normalized = email.lower().strip()
 
-        stmt = select(EmailSuppression).where(
-            EmailSuppression.email == email_normalized
-        )
+        stmt = select(EmailSuppression).where(EmailSuppression.email == email_normalized)
         result = await self.session.execute(stmt)
         suppression = result.scalars().first()
 

@@ -36,7 +36,7 @@ class MailchimpSettings(BaseSettings):
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables.
-    
+
     This configuration is infrastructure-agnostic. The application runs
     the same way locally or behind any reverse proxy (Traefik, Nginx, etc.).
     Proxy-related configuration (path prefixes, routing) belongs in the
@@ -68,10 +68,10 @@ class Settings(BaseSettings):
     # =========================================================================
     # Application Metadata
     # =========================================================================
-    project_name: str = "Mail Sender API"
+    project_name: str = "Email Service API"
     project_version: str = "1.0.0"
     project_description: str = "API for automated email sending"
-    
+
     # Internal API prefix - this is the technical prefix for all routes
     # The proxy (if any) handles external path mapping
     api_prefix: str = "/api/v1"
@@ -152,9 +152,7 @@ class Settings(BaseSettings):
     @property
     def allowed_attachment_types_list(self) -> list[str]:
         """Get allowed attachment types as list."""
-        return [
-            t.strip() for t in self.allowed_attachment_types.split(",") if t.strip()
-        ]
+        return [t.strip() for t in self.allowed_attachment_types.split(",") if t.strip()]
 
     @computed_field
     @property
@@ -289,17 +287,17 @@ class Settings(BaseSettings):
 
         # Derive environment from debug if not set
         if self.environment is None:
-            object.__setattr__(self, 'environment', "development" if self.debug else "production")
+            object.__setattr__(self, "environment", "development" if self.debug else "production")
 
         # Derive log_level from debug if not set
         if self.log_level is None:
-            object.__setattr__(self, 'log_level', "DEBUG" if self.debug else "INFO")
+            object.__setattr__(self, "log_level", "DEBUG" if self.debug else "INFO")
         else:
-            object.__setattr__(self, 'log_level', self.log_level.upper())
+            object.__setattr__(self, "log_level", self.log_level.upper())
 
         # Ensure api_prefix starts with /
         if not self.api_prefix.startswith("/"):
-            object.__setattr__(self, 'api_prefix', f"/{self.api_prefix}")
+            object.__setattr__(self, "api_prefix", f"/{self.api_prefix}")
 
         provider = self.email_provider.lower()
 

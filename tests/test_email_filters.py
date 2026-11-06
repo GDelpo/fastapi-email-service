@@ -1,4 +1,4 @@
-# mailsender/tests/test_email_filters.py
+# email-service/tests/test_email_filters.py
 """Tests for new email repository filters: to_email, date_from, date_to."""
 
 # NOTE: These tests run on SQLite which does not support true ILIKE.

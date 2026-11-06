@@ -1,1 +1,1 @@
-"""Mail Sender Service application package."""
+"""Email Service application package."""

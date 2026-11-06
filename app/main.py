@@ -1,4 +1,4 @@
-"""Mail Sender Service - Main application entry point.
+"""Email Service - Main application entry point.
 
 This application is infrastructure-agnostic. It runs the same way:
 - Locally on port 8081
@@ -38,7 +38,7 @@ from app.exceptions import (
     validation_exception_handler,
 )
 from app.logger import configure_logging, get_logger
-from app.middleware import RequestLoggingMiddleware, ProxyHeadersMiddleware
+from app.middleware import ProxyHeadersMiddleware, RequestLoggingMiddleware
 from app.providers.factory import create_email_provider, get_available_providers
 from app.schemas import DependencyStatus, HealthResponse, ServiceStatus
 from app.suppression_api import router as suppressions_router
@@ -53,7 +53,7 @@ logger = get_logger(__name__)
 async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     """Manage application lifespan: startup and shutdown events."""
     logger.info(
-        "🚀 Starting Mail Sender Service",
+        "🚀 Starting Email Service",
         extra={
             "extra_fields": {
                 "version": settings.project_version,
@@ -117,10 +117,10 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
         limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
     )
 
-    logger.info("✨ Mail Sender Service startup complete")
+    logger.info("✨ Email Service startup complete")
     yield
 
-    logger.info("⏹️ Shutting down Mail Sender Service...")
+    logger.info("⏹️ Shutting down Email Service...")
 
     # Close shared HTTP client
     await app_instance.state.http_client.aclose()
@@ -143,7 +143,7 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.error("Error disconnecting from Redis", exc_info=True)
 
-    logger.info("👋 Mail Sender Service shutdown complete")
+    logger.info("👋 Email Service shutdown complete")
 
 
 # =============================================================================
@@ -217,21 +217,21 @@ app.include_router(dashboard_router, prefix="/dashboard")
 )
 async def health_check(request: Request) -> HealthResponse:
     """Check health of the application and its dependencies.
-    
+
     This endpoint is at the root level for easy access by:
     - Load balancers
     - Kubernetes probes
     - Docker healthchecks
     - Monitoring systems
-    
+
     Returns:
         - 200 OK: Service is healthy or degraded (can still serve requests)
         - 503 Service Unavailable: Critical dependencies failed (PostgreSQL or Redis)
-    
+
     Email provider is optional - if unavailable, service is degraded but not unhealthy.
     """
     from fastapi.responses import JSONResponse
-    
+
     dependencies: dict[str, DependencyStatus] = {}
 
     # ==========================================================================
@@ -300,15 +300,11 @@ async def health_check(request: Request) -> HealthResponse:
     # ==========================================================================
     # Determine overall status
     # ==========================================================================
-    
+
     # Critical dependencies that must be healthy
     critical_deps = ["postgresql", "redis"]
-    critical_statuses = [
-        dependencies[dep].status 
-        for dep in critical_deps 
-        if dep in dependencies
-    ]
-    
+    critical_statuses = [dependencies[dep].status for dep in critical_deps if dep in dependencies]
+
     # If any critical dependency is unhealthy -> service is unhealthy
     if ServiceStatus.UNHEALTHY in critical_statuses:
         overall_status = ServiceStatus.UNHEALTHY

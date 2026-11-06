@@ -45,9 +45,7 @@ def create_email_provider(provider_type: str | None = None) -> BaseEmailProvider
             host=settings.smtp.host,
             port=settings.smtp.port,
             username=settings.smtp.username,
-            password=settings.smtp.password.get_secret_value()
-            if settings.smtp.password
-            else None,
+            password=settings.smtp.password.get_secret_value() if settings.smtp.password else None,
             use_tls=settings.smtp.use_tls,
             sender_email=settings.smtp.sender_email,
         )

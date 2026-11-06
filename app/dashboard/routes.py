@@ -37,13 +37,14 @@ async def dashboard_static(path: str):
     file = _STATIC_DIR / path
     if not file.is_file() or not file.resolve().is_relative_to(_STATIC_DIR.resolve()):
         from fastapi.responses import JSONResponse
+
         return JSONResponse({"detail": "Not found"}, status_code=404)
     media_type = _MIME.get(file.suffix, "application/octet-stream")
     return FileResponse(file, media_type=media_type)
 
 
 def _base(request: Request) -> str:
-    """Get the external base path (e.g., '/mailsender') from root_path."""
+    """Get the external base path (e.g., '/email-service') from root_path."""
     return (request.scope.get("root_path") or "").rstrip("/")
 
 
@@ -67,7 +68,7 @@ def _ctx(request: Request, *, page_title: str, active_key: str, **extra) -> dict
     return {
         "request": request,
         "base": base,
-        "service_name": "Mailsender",
+        "service_name": "Email service",
         "service_icon": "mail",
         "nav_items": nav_items,
         "page_title": page_title,
@@ -114,11 +115,15 @@ async def dashboard_login(request: Request):
     # Identity URLs are served to the browser, so we prefer the "external"
     # variant when configured (e.g., behind a reverse proxy the container URL
     # is not reachable from the user's browser).
-    return templates.TemplateResponse("login.html", {
-        "request": request,
-        "base": base,
-        "service_name": "Mailsender",
-        "service_icon": "mail",
-        "identity_login_url": settings.identity_login_url,
-        "identity_me_url": (settings.identity_external_url or settings.identity_service_url) + "/me",
-    })
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "base": base,
+            "service_name": "Email service",
+            "service_icon": "mail",
+            "identity_login_url": settings.identity_login_url,
+            "identity_me_url": (settings.identity_external_url or settings.identity_service_url)
+            + "/me",
+        },
+    )

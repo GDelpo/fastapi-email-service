@@ -63,7 +63,7 @@ async def decode_base64_async(content_b64: str) -> bytes:
 
         # Step 0: URL-decode if needed. Some legacy clients (e.g. Guzzle 5 /
         # PHP) may URL-encode the base64 padding '=' as '%3D', '+' as '%2B', etc.
-        if "%"  in data:
+        if "%" in data:
             data = unquote(data)
 
         # Fast path: try strict decode first (works for well-formed base64
@@ -185,9 +185,7 @@ async def process_uploaded_file(
     # Get metadata
     actual_filename = filename or getattr(file, "filename", None) or "attachment"
     actual_content_type = (
-        content_type
-        or getattr(file, "content_type", None)
-        or "application/octet-stream"
+        content_type or getattr(file, "content_type", None) or "application/octet-stream"
     )
 
     # Read content asynchronously
